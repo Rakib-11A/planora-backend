@@ -30,9 +30,9 @@ function parsePort(): number {
   return n;
 }
 
-/**
- * Ensure NODE_ENV is one of the standard values (asserted for TypeScript).
- */
+/*
+* Ensure NODE_ENV is one of the standard values.
+*/
 function parseNodeEnv(): NodeEnv {
   const v = requiredString("NODE_ENV").toLowerCase() as string;
   if (v !== "development" && v !== "production" && v !== "test") {
@@ -43,12 +43,10 @@ function parseNodeEnv(): NodeEnv {
   return v as NodeEnv;
 }
 
-// Validate at module load so the process fails fast on misconfiguration.
 const NODE_ENV = parseNodeEnv();
 
 /**
  * Central, validated configuration (single source of truth after dotenv).
- * Import this module early in the entrypoint (before database).
  */
 export const config = {
   PORT: parsePort(),

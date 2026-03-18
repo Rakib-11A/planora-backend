@@ -1,4 +1,4 @@
-// User — accounts that organize events, join events, pay, and review.
+// User — accounts that organize events, join events, pay, and review; auth + OAuth.
 
 model User {
   id        String   @id @default(cuid())
@@ -8,6 +8,16 @@ model User {
   role      UserRole @default(USER)
   avatar    String?
   isActive  Boolean  @default(true)
+
+  /// True once the user has verified their email (OTP or link flow).
+  isEmailVerified Boolean @default(false)
+
+  /// Google subject ID when authProvider is GOOGLE; unique across users.
+  googleId String? @unique
+
+  /// EMAIL = password login; GOOGLE = OAuth-only (password may be unused placeholder).
+  authProvider AuthProvider @default(EMAIL)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -21,4 +31,10 @@ model User {
   invitationsSent Invitation[] @relation("InvitationInviter")
   reviews   Review[]
   payments  Payment[]
+
+  /// Rotating refresh sessions (hashed tokens); removed when user is deleted.
+  refreshTokens RefreshToken[]
+
+  /// Email verification / password-reset codes (hashed); removed when user is deleted.
+  otps Otp[]
 }

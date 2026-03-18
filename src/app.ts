@@ -2,6 +2,8 @@ import cors from "cors";
 import express, { type Application, type Request, type Response } from "express";
 import helmet from "helmet";
 
+import { globalErrorHandler } from "./middlewares/error.middleware";
+import { notFoundHandler } from "./middlewares/notFound.middleware";
 
 export function createApp(): Application {
   const app: Application = express();
@@ -41,6 +43,12 @@ export function createApp(): Application {
   app.get("/health", (_req: Request, res: Response) => {
     res.status(200).json({ status: "ok", service: "planora-backend" });
   });
+
+  // Unknown routes → 404 (must be after all route definitions)
+  app.use(notFoundHandler);
+
+  // Central error handler (must be last; 4-arg handler)
+  app.use(globalErrorHandler);
 
   return app;
 }

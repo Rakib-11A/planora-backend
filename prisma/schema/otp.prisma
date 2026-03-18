@@ -1,0 +1,15 @@
+// Otp — short-lived hashed codes for verify-email and password-reset flows.
+
+model Otp {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Hashed OTP; compare via constant-time hash verify in application code.
+  code      String
+  type      OtpType
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  isUsed    Boolean  @default(false)
+
+  @@index([userId])
+}

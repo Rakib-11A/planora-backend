@@ -1,13 +1,11 @@
-// Load and validate env first — fails fast if .env is incomplete.
 import "./config/env";
 
 import { createApp } from "./app";
 import { config } from "./config/env";
 import { connectDB } from "./config/database";
 
-/**
- * Boot: DB then HTTP server. Uses validated PORT from config.
- */
+// Boot: DB then HTTP server. Uses validated PORT from config.
+
 async function bootstrap(): Promise<void> {
   await connectDB();
 

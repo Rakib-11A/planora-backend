@@ -34,3 +34,15 @@ enum PaymentStatus {
   FAILED
   REFUNDED
 }
+
+/// How the user signs in: local email/password vs Google OAuth.
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+}
+
+/// Purpose of a one-time code (hashed at rest).
+enum OtpType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
