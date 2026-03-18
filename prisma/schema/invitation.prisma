@@ -1,0 +1,18 @@
+// Invitation — private events: one row per invitee per event.
+
+model Invitation {
+  id            String           @id @default(cuid())
+  eventId       String
+  invitedUserId String
+  invitedById   String
+  status        InvitationStatus @default(PENDING)
+  createdAt     DateTime         @default(now())
+
+  event       Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  invitedUser User  @relation("InvitationInvitee", fields: [invitedUserId], references: [id], onDelete: Cascade)
+  invitedBy   User  @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, invitedUserId])
+  @@index([invitedUserId])
+  @@index([invitedById])
+}

@@ -1,0 +1,36 @@
+// Shared enums for all domain models
+
+/// Application role: standard attendee vs platform admin.
+enum UserRole {
+  USER
+  ADMIN
+}
+
+/// Who can discover / register for the event.
+enum EventType {
+  PUBLIC
+  PRIVATE
+}
+
+/// Lifecycle of a user’s registration for an event.
+enum ParticipationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  BANNED
+}
+
+/// Response to a private-event invite.
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+/// Payment lifecycle for registration fees.
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}

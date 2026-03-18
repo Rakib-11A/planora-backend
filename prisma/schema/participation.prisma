@@ -1,0 +1,20 @@
+// Participation — a user’s membership in an event (registration / attendance).
+// Deleting the event removes all participations (cascade).
+
+model Participation {
+  id       String              @id @default(cuid())
+  userId   String
+  eventId  String
+  status   ParticipationStatus @default(PENDING)
+  joinedAt DateTime            @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  /// Optional payment tied to this registration (one payment row per participation when set).
+  payment Payment?
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+  @@index([userId])
+}

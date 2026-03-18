@@ -1,0 +1,24 @@
+// User — accounts that organize events, join events, pay, and review.
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  avatar    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Events this user created (organizer).
+  events Event[] @relation("EventOrganizer")
+
+  participations Participation[]
+  /// Invitations where this user is the invitee.
+  invitationsReceived Invitation[] @relation("InvitationInvitee")
+  /// Invitations created by this user (inviter).
+  invitationsSent Invitation[] @relation("InvitationInviter")
+  reviews   Review[]
+  payments  Payment[]
+}

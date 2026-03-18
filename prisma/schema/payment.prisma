@@ -1,0 +1,22 @@
+// Payment — registration or other event-related charges.
+
+model Payment {
+  id       String @id @default(cuid())
+  userId   String
+  eventId  String
+  /// When set, ties this payment to a single participation (one-to-one).
+  participationId String? @unique
+  amount   Decimal       @db.Decimal(12, 2)
+  currency String        @default("BDT")
+  status   PaymentStatus @default(PENDING)
+  transactionId   String?
+  paymentMethod   String?
+  createdAt DateTime @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  participation Participation? @relation(fields: [participationId], references: [id], onDelete: SetNull)
+
+  @@index([eventId])
+  @@index([userId])
+}
