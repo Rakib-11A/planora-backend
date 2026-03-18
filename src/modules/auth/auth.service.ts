@@ -36,9 +36,7 @@ import {
 
 const BCRYPT_PASSWORD_ROUNDS = 12;
 
-// -----------------------------------------------------------------------------
 // Input / output types
-// -----------------------------------------------------------------------------
 
 export type RegisterInput = {
   name: string;
@@ -72,13 +70,10 @@ export type RefreshResult = {
   refreshToken: string;
 };
 
-// -----------------------------------------------------------------------------
 // Registration & email verification
-// -----------------------------------------------------------------------------
 
-/**
- * Register a new user (EMAIL provider), send verification OTP, never return password.
- */
+// Register a new user (EMAIL provider), send verification OTP, never return password.
+
 export async function registerUser(
   data: RegisterInput,
   _meta: AuthMeta = {},
@@ -114,9 +109,8 @@ export async function registerUser(
   return { message: "Registration successful. Check email for OTP." };
 }
 
-/**
- * Verify email with OTP, mark user verified, optionally send welcome email.
- */
+// Verify email with OTP, mark user verified, optionally send welcome email.
+
 export async function verifyEmail(
   email: string,
   otp: string,
@@ -150,9 +144,8 @@ export async function verifyEmail(
   return { message: "Email verified successfully" };
 }
 
-/**
- * Resend verification OTP; invalidates previous OTP of same type via repo.
- */
+// Resend verification OTP; invalidates previous OTP of same type via repo.
+
 export async function resendVerificationOtp(email: string): Promise<{ message: string }> {
   const user = await findUserByEmail(email);
   if (!user) {
@@ -180,13 +173,10 @@ export async function resendVerificationOtp(email: string): Promise<{ message: s
   return { message: "OTP sent to your email" };
 }
 
-// -----------------------------------------------------------------------------
 // Login, refresh, logout
-// -----------------------------------------------------------------------------
 
-/**
- * Authenticate with email/password; issue access + refresh tokens and store hashed refresh token.
- */
+// Authenticate with email/password; issue access + refresh tokens and store hashed refresh token.
+
 export async function loginUser(
   data: LoginInput,
   meta: AuthMeta = {},

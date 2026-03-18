@@ -2,12 +2,6 @@ import type { AuthProvider, Otp, OtpType, Prisma, RefreshToken, User } from "@pr
 
 import prisma from "../../config/database";
 
-/**
- * Prisma schema enum `AuthProvider`. Declared here because some generated clients
- * omit it from `$Enums` (stale generate / tooling); values stay in sync with schema.
- */
-// export type AuthProvider = "EMAIL" | "GOOGLE";
-
 export type UserPublic = {
   id: string;
   name: string;
