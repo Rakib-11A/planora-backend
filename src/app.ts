@@ -4,6 +4,8 @@ import express, { type Application, type Request, type Response } from "express"
 import helmet from "helmet";
 
 import authRouter from "./modules/auth/auth.routes";
+import eventRouter from "./modules/event/event.route";
+import participationRouter from "./modules/participation/participation.route";
 import { globalErrorHandler } from "./middlewares/error.middleware";
 import { notFoundHandler } from "./middlewares/notFound.middleware";
 
@@ -47,6 +49,8 @@ export function createApp(): Application {
 
   // Section: API routes
   app.use("/api/auth", authRouter);
+  app.use("/api/events", eventRouter);
+  app.use("/api", participationRouter);
 
   app.use(notFoundHandler);
   app.use(globalErrorHandler);

@@ -21,8 +21,8 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /// Events this user created (organizer).
-  events Event[] @relation("EventOrganizer")
+  /// Events this user created.
+  events Event[] @relation("EventCreatedBy")
 
   participations Participation[]
   /// Invitations where this user is the invitee.
