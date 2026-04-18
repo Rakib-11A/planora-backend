@@ -17,4 +17,5 @@ model Review {
   @@unique([userId, eventId])
   @@index([eventId])
   @@index([eventId, deletedAt])
+  @@index([eventId, deletedAt, createdAt])
 }

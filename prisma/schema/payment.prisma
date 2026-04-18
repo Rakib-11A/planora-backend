@@ -19,4 +19,6 @@ model Payment {
   @@index([eventId])
   @@index([userId])
   @@index([participationId])
+  @@index([userId, createdAt])
+  @@index([eventId, status])
 }

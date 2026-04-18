@@ -10,3 +10,7 @@ docs
 # Logs and OS
 *.log
 .DS_Store
+
+# Cursor 
+.cursorrules
+.cursor

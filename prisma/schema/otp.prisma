@@ -12,4 +12,5 @@ model Otp {
   isUsed    Boolean  @default(false)
 
   @@index([userId])
+  @@index([userId, type, isUsed, expiresAt])
 }
