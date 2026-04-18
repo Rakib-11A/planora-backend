@@ -104,3 +104,40 @@ export async function listEventParticipants(
   });
 }
 
+export async function findParticipationWithUserByUserAndEvent(
+  userId: string,
+  eventId: string,
+): Promise<{
+  id: string;
+  userId: string;
+  eventId: string;
+  status: ParticipationStatus;
+  user: { id: string; name: string; email: string };
+  event: { id: string; title: string };
+} | null> {
+  return prisma.participation.findUnique({
+    where: {
+      userId_eventId: { userId, eventId },
+    },
+    select: {
+      id: true,
+      userId: true,
+      eventId: true,
+      status: true,
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      event: {
+        select: {
+          id: true,
+          title: true,
+        },
+      },
+    },
+  });
+}
+

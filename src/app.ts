@@ -9,6 +9,7 @@ import invitationRouter from "./modules/invitation/invitation.route";
 import paymentRouter from "./modules/payment/payment.route";
 import participationRouter from "./modules/participation/participation.route";
 import reviewRouter from "./modules/review/review.route";
+import notificationRouter from "./modules/notification/notification.route";
 import { globalErrorHandler } from "./middlewares/error.middleware";
 import { notFoundHandler } from "./middlewares/notFound.middleware";
 
@@ -57,6 +58,7 @@ export function createApp(): Application {
   app.use("/api", participationRouter);
   app.use("/api", paymentRouter);
   app.use("/api", reviewRouter);
+  app.use("/api", notificationRouter);
 
   app.use(notFoundHandler);
   app.use(globalErrorHandler);
