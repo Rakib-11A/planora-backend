@@ -2,9 +2,6 @@ import "dotenv/config";
 
 type NodeEnv = "development" | "production" | "test";
 
-/**
- * Read a required string env var; throws before the app boots if missing or blank.
- */
 function requiredString(key: string): string {
   const raw = process.env[key] as string | undefined;
   if (raw === undefined || raw.trim() === "") {
@@ -15,9 +12,14 @@ function requiredString(key: string): string {
   return raw.trim();
 }
 
-/*
-* Parse PORT; defaults to 5000 when unset (matches server convention).
-*/
+function optionalString(key: string, defaultValue: string): string {
+  const raw = process.env[key] as string | undefined;
+  if (raw === undefined || raw.trim() === "") {
+    return defaultValue;
+  }
+  return raw.trim();
+}
+
 function parsePort(): number {
   const raw = process.env.PORT as string | undefined;
   if (raw === undefined || raw.trim() === "") {
@@ -30,9 +32,18 @@ function parsePort(): number {
   return n;
 }
 
-/*
-* Ensure NODE_ENV is one of the standard values.
-*/
+function parseSmtpPort(): number {
+  const raw = process.env.SMTP_PORT as string | undefined;
+  if (raw === undefined || raw.trim() === "") {
+    return 587;
+  }
+  const n = Number.parseInt(raw, 10);
+  if (Number.isNaN(n) || n < 1 || n > 65535) {
+    throw new Error(`[env] Invalid SMTP_PORT: "${raw}".`);
+  }
+  return n;
+}
+
 function parseNodeEnv(): NodeEnv {
   const v = requiredString("NODE_ENV").toLowerCase() as string;
   if (v !== "development" && v !== "production" && v !== "test") {
@@ -45,16 +56,39 @@ function parseNodeEnv(): NodeEnv {
 
 const NODE_ENV = parseNodeEnv();
 
-/**
- * Central, validated configuration (single source of truth after dotenv).
- */
+const JWT_ACCESS_SECRET = requiredString("JWT_ACCESS_SECRET");
+const JWT_REFRESH_SECRET = requiredString("JWT_REFRESH_SECRET");
+if (JWT_ACCESS_SECRET === JWT_REFRESH_SECRET) {
+  throw new Error(
+    "[env] JWT_REFRESH_SECRET must be different from JWT_ACCESS_SECRET.",
+  );
+}
+
 export const config = {
   PORT: parsePort(),
   DATABASE_URL: requiredString("DATABASE_URL"),
-  JWT_SECRET: requiredString("JWT_SECRET"),
-  JWT_EXPIRES_IN: requiredString("JWT_EXPIRES_IN"),
   NODE_ENV,
   FRONTEND_URL: requiredString("FRONTEND_URL"),
+
+  JWT_ACCESS_SECRET,
+  JWT_REFRESH_SECRET,
+  JWT_ACCESS_EXPIRES_IN: optionalString("JWT_ACCESS_EXPIRES_IN", "15m"),
+  JWT_REFRESH_EXPIRES_IN: optionalString("JWT_REFRESH_EXPIRES_IN", "7d"),
+
+  SMTP_HOST: optionalString("SMTP_HOST", "smtp.gmail.com"),
+  SMTP_PORT: parseSmtpPort(),
+  SMTP_USER: requiredString("SMTP_USER"),
+  SMTP_PASS: requiredString("SMTP_PASS"),
+  SMTP_FROM: requiredString("SMTP_FROM"),
+
+  BETTER_AUTH_SECRET: requiredString("BETTER_AUTH_SECRET"),
+  BETTER_AUTH_URL: requiredString("BETTER_AUTH_URL"),
+  GOOGLE_CLIENT_ID: requiredString("GOOGLE_CLIENT_ID"),
+  GOOGLE_CLIENT_SECRET: requiredString("GOOGLE_CLIENT_SECRET"),
 } as const;
+
+export function isSmtpSecure(): boolean {
+  return config.SMTP_PORT === 465;
+}
 
 export type AppConfig = typeof config;
