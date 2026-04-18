@@ -1,6 +1,8 @@
 import { OtpType } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
+import { getRedisClient } from "../../config/redis";
+import { logger } from "../../lib/logger/logger";
 import { sendEmail } from "../../config/email";
 import { otpEmailTemplate, welcomeEmailTemplate } from "../../config/emailTemplates";
 import { config } from "../../config/env";
@@ -35,6 +37,12 @@ import {
 } from "./auth.repository";
 
 const BCRYPT_PASSWORD_ROUNDS = 12;
+const LOGIN_FAIL_MAX_ATTEMPTS = 5;
+const LOGIN_BLOCK_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_FAIL_PREFIX = "security:v1:login:fail";
+const LOGIN_BLOCK_PREFIX = "security:v1:login:block";
+const inMemoryFailedAttempts = new Map<string, { count: number; expiresAt: number }>();
+const inMemoryBlockedAttempts = new Map<string, number>();
 
 // Input / output types
 
@@ -57,6 +65,7 @@ export type ChangePasswordInput = {
 export type AuthMeta = {
   ip?: string;
   userAgent?: string;
+  requestId?: string;
 };
 
 export type LoginResult = {
@@ -69,6 +78,88 @@ export type RefreshResult = {
   accessToken: string;
   refreshToken: string;
 };
+
+function getLoginAttemptId(email: string, ip?: string): string {
+  return `${email.toLowerCase()}|${ip ?? "unknown"}`;
+}
+
+function clearInMemoryIfExpired(id: string): void {
+  const now = Date.now();
+  const failed = inMemoryFailedAttempts.get(id);
+  if (failed !== undefined && failed.expiresAt <= now) {
+    inMemoryFailedAttempts.delete(id);
+  }
+
+  const blockedUntil = inMemoryBlockedAttempts.get(id);
+  if (blockedUntil !== undefined && blockedUntil <= now) {
+    inMemoryBlockedAttempts.delete(id);
+  }
+}
+
+async function isLoginBlocked(id: string): Promise<boolean> {
+  clearInMemoryIfExpired(id);
+  if ((inMemoryBlockedAttempts.get(id) ?? 0) > Date.now()) {
+    return true;
+  }
+
+  const redis = getRedisClient();
+  if (!redis) return false;
+
+  try {
+    const blocked = await redis.get(`${LOGIN_BLOCK_PREFIX}:${id}`);
+    return blocked === "1";
+  } catch {
+    return false;
+  }
+}
+
+async function registerLoginFailure(id: string): Promise<number> {
+  clearInMemoryIfExpired(id);
+  const now = Date.now();
+
+  const failedLocal = inMemoryFailedAttempts.get(id);
+  const nextCount = (failedLocal?.count ?? 0) + 1;
+  inMemoryFailedAttempts.set(id, {
+    count: nextCount,
+    expiresAt: now + LOGIN_BLOCK_WINDOW_MS,
+  });
+  if (nextCount >= LOGIN_FAIL_MAX_ATTEMPTS) {
+    inMemoryFailedAttempts.delete(id);
+    inMemoryBlockedAttempts.set(id, now + LOGIN_BLOCK_WINDOW_MS);
+  }
+
+  const redis = getRedisClient();
+  if (!redis) return nextCount;
+
+  try {
+    const failKey = `${LOGIN_FAIL_PREFIX}:${id}`;
+    const blockKey = `${LOGIN_BLOCK_PREFIX}:${id}`;
+    const failures = await redis.incr(failKey);
+    if (failures === 1) {
+      await redis.pexpire(failKey, LOGIN_BLOCK_WINDOW_MS);
+    }
+    if (failures >= LOGIN_FAIL_MAX_ATTEMPTS) {
+      await redis.set(blockKey, "1", "PX", LOGIN_BLOCK_WINDOW_MS);
+      await redis.del(failKey);
+    }
+    return failures;
+  } catch {
+    return nextCount;
+  }
+}
+
+async function clearLoginFailures(id: string): Promise<void> {
+  inMemoryFailedAttempts.delete(id);
+  inMemoryBlockedAttempts.delete(id);
+
+  const redis = getRedisClient();
+  if (!redis) return;
+  try {
+    await redis.del(`${LOGIN_FAIL_PREFIX}:${id}`, `${LOGIN_BLOCK_PREFIX}:${id}`);
+  } catch {
+    // ignore to avoid breaking auth flow
+  }
+}
 
 // Registration & email verification
 
@@ -181,8 +272,27 @@ export async function loginUser(
   data: LoginInput,
   meta: AuthMeta = {},
 ): Promise<LoginResult> {
+  const attemptId = getLoginAttemptId(data.email, meta.ip);
+  if (await isLoginBlocked(attemptId)) {
+    logger.warn("Login blocked due to brute-force protection", {
+      email: data.email.toLowerCase(),
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
+    });
+    throw new ApiError(429, "Too many failed login attempts. Try again later.");
+  }
+
   const user = await findUserByEmail(data.email);
   if (!user) {
+    const failures = await registerLoginFailure(attemptId);
+    logger.warn("Login failed: user not found", {
+      email: data.email.toLowerCase(),
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
+      failures,
+    });
     throw new ApiError(401, "Invalid email or password");
   }
   if (user.authProvider === "GOOGLE") {
@@ -194,14 +304,25 @@ export async function loginUser(
   if (!user.isActive) {
     throw new ApiError(403, "Account deactivated");
   }
-  if (user.isBanned) {
+  if ((user as { isBanned?: boolean }).isBanned === true) {
     throw new ApiError(403, "Account is banned");
   }
 
   const passwordMatch = await bcrypt.compare(data.password, user.password);
   if (!passwordMatch) {
+    const failures = await registerLoginFailure(attemptId);
+    logger.warn("Login failed: invalid credentials", {
+      userId: user.id,
+      email: data.email.toLowerCase(),
+      ip: meta.ip,
+      userAgent: meta.userAgent,
+      requestId: meta.requestId,
+      failures,
+    });
     throw new ApiError(401, "Invalid email or password");
   }
+
+  await clearLoginFailures(attemptId);
 
   const payload = { sub: user.id, email: user.email, role: user.role };
   const accessToken = generateAccessToken(payload);
@@ -216,6 +337,13 @@ export async function loginUser(
     userAgent: meta.userAgent,
   });
 
+  logger.info("Login successful", {
+    userId: user.id,
+    ip: meta.ip,
+    userAgent: meta.userAgent,
+    requestId: meta.requestId,
+  });
+
   const safeUser: UserPublic = {
     id: user.id,
     name: user.name,
@@ -223,8 +351,8 @@ export async function loginUser(
     role: user.role,
     avatar: user.avatar,
     isActive: user.isActive,
-    isBanned: user.isBanned,
-    bannedAt: user.bannedAt,
+    isBanned: (user as { isBanned?: boolean }).isBanned ?? false,
+    bannedAt: (user as { bannedAt?: Date | null }).bannedAt ?? null,
     isEmailVerified: user.isEmailVerified,
     authProvider: user.authProvider,
     createdAt: user.createdAt,

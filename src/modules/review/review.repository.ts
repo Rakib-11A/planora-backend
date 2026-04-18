@@ -14,8 +14,6 @@ const reviewSelect = {
     select: {
       id: true,
       name: true,
-      email: true,
-      avatar: true,
     },
   },
 } as const;
@@ -76,12 +74,26 @@ export async function deleteReviewById(id: string): Promise<Review> {
   });
 }
 
-export async function listEventReviews(eventId: string): Promise<EventReview[]> {
-  return prisma.review.findMany({
-    where: { eventId, deletedAt: null },
-    orderBy: { createdAt: "desc" },
-    select: reviewSelect,
-  });
+export async function listEventReviews(
+  eventId: string,
+  page: number,
+  limit: number,
+): Promise<{ items: EventReview[]; total: number }> {
+  const skip = (page - 1) * limit;
+  const where: Prisma.ReviewWhereInput = { eventId, deletedAt: null };
+
+  const [items, total] = await prisma.$transaction([
+    prisma.review.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      select: reviewSelect,
+    }),
+    prisma.review.count({ where }),
+  ]);
+
+  return { items, total };
 }
 
 export async function findApprovedParticipation(
@@ -103,30 +115,34 @@ export async function getEventRatingSummary(eventId: string): Promise<{
   totalReviews: number;
   breakdown: { 1: number; 2: number; 3: number; 4: number; 5: number };
 }> {
-  const [aggregate, oneStar, twoStar, threeStar, fourStar, fiveStar] =
-    await prisma.$transaction([
+  const [aggregate, grouped] = await prisma.$transaction([
     prisma.review.aggregate({
       where: { eventId, deletedAt: null },
       _avg: { rating: true },
       _count: { _all: true },
     }),
-    prisma.review.count({ where: { eventId, rating: 1, deletedAt: null } }),
-    prisma.review.count({ where: { eventId, rating: 2, deletedAt: null } }),
-    prisma.review.count({ where: { eventId, rating: 3, deletedAt: null } }),
-    prisma.review.count({ where: { eventId, rating: 4, deletedAt: null } }),
-    prisma.review.count({ where: { eventId, rating: 5, deletedAt: null } }),
+    prisma.review.groupBy({
+      by: ["rating"],
+      where: { eventId, deletedAt: null },
+      _count: { rating: true },
+      orderBy: { rating: "asc" },
+    }),
   ]);
+
+  const breakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  for (const row of grouped) {
+    if (row.rating >= 1 && row.rating <= 5) {
+      const count = (
+        row._count as { rating?: number; _all?: number } | undefined
+      )?.rating ?? 0;
+      breakdown[row.rating as 1 | 2 | 3 | 4 | 5] = count;
+    }
+  }
 
   return {
     avgRating: Number(aggregate._avg.rating ?? 0),
     totalReviews: aggregate._count._all,
-    breakdown: {
-      1: oneStar,
-      2: twoStar,
-      3: threeStar,
-      4: fourStar,
-      5: fiveStar,
-    },
+    breakdown,
   };
 }
 

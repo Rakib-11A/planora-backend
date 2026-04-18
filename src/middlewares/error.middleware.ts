@@ -4,6 +4,8 @@ import { JsonWebTokenError, TokenExpiredError } from "jsonwebtoken";
 import { ZodError } from "zod";
 
 import { config } from "../config/env";
+import { logger } from "../lib/logger/logger";
+import type { AuthenticatedRequest } from "../types";
 import { ApiError } from "../utils/ApiError";
 import { ApiResponse } from "../utils/ApiResponse";
 
@@ -29,10 +31,19 @@ function zodIssuesToErrors(err: ZodError): Array<{ path: string; message: string
 // Global Express error handler: ApiError, Prisma, JWT, Zod, and fallback 500.
 export const globalErrorHandler: ErrorRequestHandler = (
   err: unknown,
-  _req,
+  req,
   res,
   _next,
 ): void => {
+  const request = req as AuthenticatedRequest;
+  const requestInfo = {
+    requestId: req.requestId ?? null,
+    method: req.method,
+    url: req.originalUrl,
+    statusCode: res.statusCode,
+    userId: request.user?.id ?? null,
+  };
+
   const withStack = (body: ErrorBody): ErrorBody =>
     isDev() && err instanceof Error && err.stack !== undefined
       ? { ...body, stack: err.stack }
@@ -40,6 +51,12 @@ export const globalErrorHandler: ErrorRequestHandler = (
 
   // 1) Operational API errors
   if (err instanceof ApiError) {
+    logger.warn("Handled ApiError", {
+      ...requestInfo,
+      statusCode: err.statusCode,
+      message: err.message,
+      errors: err.errors,
+    });
     const body: ErrorBody = {
       success: false,
       message: err.message,
@@ -51,6 +68,12 @@ export const globalErrorHandler: ErrorRequestHandler = (
 
   // 2) Prisma known request errors
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    logger.error("Prisma client error", {
+      ...requestInfo,
+      code: err.code,
+      message: err.message,
+      stack: err.stack,
+    });
     if (err.code === "P2002") {
       res.status(409).json(
         withStack({
@@ -73,6 +96,10 @@ export const globalErrorHandler: ErrorRequestHandler = (
 
   // 3) JWT
   if (err instanceof TokenExpiredError) {
+    logger.warn("Token expired", {
+      ...requestInfo,
+      message: err.message,
+    });
     res.status(401).json(
       withStack({
         success: false,
@@ -82,6 +109,10 @@ export const globalErrorHandler: ErrorRequestHandler = (
     return;
   }
   if (err instanceof JsonWebTokenError) {
+    logger.warn("Invalid token", {
+      ...requestInfo,
+      message: err.message,
+    });
     res.status(401).json(
       withStack({
         success: false,
@@ -93,6 +124,10 @@ export const globalErrorHandler: ErrorRequestHandler = (
 
   // 4) Zod validation — use ApiResponse for typed envelope, map to wire format
   if (err instanceof ZodError) {
+    logger.warn("Validation error", {
+      ...requestInfo,
+      issues: zodIssuesToErrors(err),
+    });
     const issues = zodIssuesToErrors(err);
     const envelope = new ApiResponse(400, issues, "Validation failed");
     res.status(400).json(
@@ -106,6 +141,11 @@ export const globalErrorHandler: ErrorRequestHandler = (
   }
 
   // 5) Generic / unexpected — fixed client message; stack only in development
+  logger.error("Unhandled error", {
+    ...requestInfo,
+    message: err instanceof Error ? err.message : "Unknown error",
+    stack: err instanceof Error ? err.stack : undefined,
+  });
   res.status(500).json(
     withStack({
       success: false,

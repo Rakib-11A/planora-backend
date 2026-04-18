@@ -22,6 +22,11 @@ const eventSelect = {
       email: true,
     },
   },
+  _count: {
+    select: {
+      participations: true,
+    },
+  },
 } as const;
 
 type EventWhere = Prisma.EventWhereInput;
@@ -37,10 +42,12 @@ function withRatings(
 
   return events.map((event) => {
     const aggregate = aggregateMap.get(event.id);
+    const { _count, ...rest } = event;
     return {
-      ...event,
+      ...rest,
       avgRating: aggregate?.avgRating ?? 0,
       totalReviews: aggregate?.totalReviews ?? 0,
+      participationCount: _count.participations,
     };
   });
 }
@@ -49,7 +56,13 @@ export async function createEvent(
   data: Prisma.EventUncheckedCreateInput,
 ): Promise<EventSafe> {
   const event = await prisma.event.create({ data, select: eventSelect });
-  return { ...event, avgRating: 0, totalReviews: 0 };
+  const { _count, ...rest } = event;
+  return {
+    ...rest,
+    avgRating: 0,
+    totalReviews: 0,
+    participationCount: _count.participations,
+  };
 }
 
 export async function findEventById(id: string): Promise<EventSafe | null> {
@@ -64,11 +77,13 @@ export async function findEventById(id: string): Promise<EventSafe | null> {
     _avg: { rating: true },
     _count: { _all: true },
   });
+  const { _count, ...rest } = event;
 
   return {
-    ...event,
+    ...rest,
     avgRating: Number(aggregate._avg.rating ?? 0),
     totalReviews: aggregate._count._all,
+    participationCount: _count.participations,
   };
 }
 
@@ -136,11 +151,13 @@ export async function updateEventById(
     _avg: { rating: true },
     _count: { _all: true },
   });
+  const { _count, ...rest } = updated;
 
   return {
-    ...updated,
+    ...rest,
     avgRating: Number(aggregate._avg.rating ?? 0),
     totalReviews: aggregate._count._all,
+    participationCount: _count.participations,
   };
 }
 
@@ -150,11 +167,13 @@ export async function deleteEventById(id: string): Promise<EventSafe> {
     data: { deletedAt: new Date() },
     select: eventSelect,
   });
+  const { _count, ...rest } = deleted;
 
   return {
-    ...deleted,
+    ...rest,
     avgRating: 0,
     totalReviews: 0,
+    participationCount: _count.participations,
   };
 }
 

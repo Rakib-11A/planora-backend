@@ -82,12 +82,24 @@ export async function updateParticipationStatus(
 
 export async function listUserParticipations(
   userId: string,
-): Promise<ParticipationWithEvent[]> {
-  return prisma.participation.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    select: participationWithEventSelect,
-  });
+  page: number,
+  limit: number,
+): Promise<{ items: ParticipationWithEvent[]; total: number }> {
+  const skip = (page - 1) * limit;
+  const where: Prisma.ParticipationWhereInput = { userId };
+
+  const [items, total] = await prisma.$transaction([
+    prisma.participation.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      select: participationWithEventSelect,
+    }),
+    prisma.participation.count({ where }),
+  ]);
+
+  return { items, total };
 }
 
 export async function listEventParticipants(

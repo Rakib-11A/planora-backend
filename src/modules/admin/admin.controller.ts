@@ -9,6 +9,8 @@ import {
   getAllEventsService,
   getAllReviewsService,
   getAllUsersService,
+  getCacheStatsService,
+  getRateLimitStatsService,
   unbanUserService,
 } from "./admin.service";
 import {
@@ -60,5 +62,15 @@ export const deleteReview = asyncHandler(async (req: Request, res: Response) => 
   const { reviewId } = reviewIdParamSchema.parse(req.params);
   const result = await deleteReviewService(reviewId);
   res.status(200).json(new ApiResponse(200, result, result.message));
+});
+
+export const getCacheStats = asyncHandler(async (_req: Request, res: Response) => {
+  const data = await getCacheStatsService();
+  res.status(200).json(new ApiResponse(200, data, "Cache stats"));
+});
+
+export const getRateLimitStats = asyncHandler(async (_req: Request, res: Response) => {
+  const data = await getRateLimitStatsService();
+  res.status(200).json(new ApiResponse(200, data, "Rate limit stats"));
 });
 

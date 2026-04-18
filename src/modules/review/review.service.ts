@@ -11,6 +11,8 @@ import {
   updateReviewById,
 } from "./review.repository";
 import type { CreateReviewInput, UpdateReviewInput } from "./review.validation";
+import { paginate } from "../../shared/utils/pagination";
+import { invalidateEventAndReviewCaches } from "../../shared/utils/cache";
 
 export async function createReviewService(
   eventId: string,
@@ -62,6 +64,8 @@ export async function updateReviewService(
     comment: input.comment,
   });
 
+  void invalidateEventAndReviewCaches(eventId);
+
   return { message: "Review updated successfully" };
 }
 
@@ -80,15 +84,21 @@ export async function deleteReviewService(
   }
 
   await deleteReviewById(review.id);
+  void invalidateEventAndReviewCaches(eventId);
   return { message: "Review deleted successfully" };
 }
 
-export async function getEventReviewsService(eventId: string) {
+export async function getEventReviewsService(
+  eventId: string,
+  page: number,
+  limit: number,
+) {
   const event = await findEventByIdForReview(eventId);
   if (!event) {
     throw new ApiError(404, "Event not found");
   }
-  return listEventReviews(eventId);
+  const { items, total } = await listEventReviews(eventId, page, limit);
+  return paginate({ page, limit }, total, items);
 }
 
 export async function getEventReviewSummaryService(eventId: string) {

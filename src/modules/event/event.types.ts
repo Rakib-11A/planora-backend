@@ -22,6 +22,7 @@ export type EventSafe = Pick<
 > & {
   avgRating: number;
   totalReviews: number;
+  participationCount: number;
   createdBy: {
     id: string;
     name: string;

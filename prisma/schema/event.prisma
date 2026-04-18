@@ -23,10 +23,10 @@ model Event {
   reviews        Review[]
   payments       Payment[]
 
-  @@index([dateTime])
-  @@index([isPublic, isPaid, dateTime])
-  @@index([createdById])
-  @@index([deletedAt, dateTime])
+  @@index([dateTime]) // Used by: GET /api/events (chronological sorting)
+  @@index([isPublic, isPaid, dateTime]) // Used by: GET /api/events (visibility/payment filtered listings)
+  @@index([createdById]) // Used by: owner-scoped event lookups and admin filtering
+  @@index([deletedAt, dateTime]) // Used by: GET /api/events (active records + date order)
   /// Supports common public listing: deletedAt + visibility flags + sort by dateTime
-  @@index([deletedAt, isPublic, isPaid, dateTime])
+  @@index([deletedAt, isPublic, isPaid, dateTime]) // Used by: GET /api/events (primary composite listing path)
 }

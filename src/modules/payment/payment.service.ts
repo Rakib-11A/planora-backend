@@ -15,6 +15,8 @@ import {
   updatePaymentById,
 } from "./payment.repository";
 import type { InitiatePaymentResult, VerifyPaymentResult } from "./payment.types";
+import { paginate } from "../../shared/utils/pagination";
+import { invalidateParticipationSideEffects } from "../../shared/utils/cache";
 
 const PROVIDER_NAME = "mock";
 
@@ -130,6 +132,8 @@ export async function verifyPaymentService(
       nextParticipationStatus,
     );
 
+    void invalidateParticipationSideEffects(userId, payment.eventId);
+
     await emitNotificationEvent({
       userId: payment.user.id,
       type: NOTIFICATION_TYPES.PAYMENT_SUCCESS,
@@ -166,7 +170,12 @@ export async function verifyPaymentService(
   };
 }
 
-export async function getMyPaymentsService(userId: string) {
-  return listUserPayments(userId);
+export async function getMyPaymentsService(
+  userId: string,
+  page: number,
+  limit: number,
+) {
+  const { items, total } = await listUserPayments(userId, page, limit);
+  return paginate({ page, limit }, total, items);
 }
 

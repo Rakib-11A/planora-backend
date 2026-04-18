@@ -14,6 +14,7 @@ import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
+const BENCH_MARK = "[bench-fixture]";
 
 function stats(times: number[]): { min: number; max: number; avg: number } {
   const min = Math.min(...times);
@@ -35,6 +36,69 @@ async function timeRuns<T>(label: string, n: number, fn: () => Promise<T>): Prom
   );
 }
 
+async function ensureBenchmarkFixture(): Promise<{ eventId: string; userId: string }> {
+  const existingEvent = await prisma.event.findFirst({
+    where: { title: BENCH_MARK, deletedAt: null },
+    select: { id: true, createdById: true },
+  });
+  if (existingEvent) {
+    return { eventId: existingEvent.id, userId: existingEvent.createdById };
+  }
+
+  const owner = await prisma.user.create({
+    data: {
+      name: `${BENCH_MARK}-owner`,
+      email: `bench-owner-${Date.now()}@planora.local`,
+      password: "benchmark-password",
+    },
+    select: { id: true },
+  });
+
+  const event = await prisma.event.create({
+    data: {
+      title: BENCH_MARK,
+      description: "Synthetic event used for query benchmark.",
+      dateTime: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+      venue: "Benchmark Hall",
+      isPublic: true,
+      isPaid: false,
+      fee: 0,
+      createdById: owner.id,
+    },
+    select: { id: true },
+  });
+
+  for (let rating = 1; rating <= 5; rating++) {
+    const reviewer = await prisma.user.create({
+      data: {
+        name: `${BENCH_MARK}-reviewer-${rating}`,
+        email: `bench-reviewer-${rating}-${Date.now()}@planora.local`,
+        password: "benchmark-password",
+      },
+      select: { id: true },
+    });
+
+    await prisma.participation.create({
+      data: {
+        userId: reviewer.id,
+        eventId: event.id,
+        status: "APPROVED",
+      },
+    });
+
+    await prisma.review.create({
+      data: {
+        userId: reviewer.id,
+        eventId: event.id,
+        rating,
+        comment: `benchmark-review-${rating}`,
+      },
+    });
+  }
+
+  return { eventId: event.id, userId: owner.id };
+}
+
 async function main(): Promise<void> {
   if (!process.env.DATABASE_URL) {
     throw new Error("DATABASE_URL is required");
@@ -47,6 +111,7 @@ async function main(): Promise<void> {
 
   const eventIdEnv = process.env.BENCH_EVENT_ID;
   const userIdEnv = process.env.BENCH_USER_ID;
+  const fixture = await ensureBenchmarkFixture();
 
   await timeRuns("events:listPublicUpcoming(take=20)", n, async () => {
     await prisma.event.findMany({
@@ -65,6 +130,7 @@ async function main(): Promise<void> {
 
   const eid =
     eventIdEnv ??
+    fixture.eventId ??
     (
       await prisma.event.findFirst({
         where: { deletedAt: null },
@@ -121,7 +187,9 @@ async function main(): Promise<void> {
   }
 
   const uid =
-    userIdEnv ?? (await prisma.user.findFirst({ select: { id: true } }))?.id;
+    userIdEnv ??
+    fixture.userId ??
+    (await prisma.user.findFirst({ select: { id: true } }))?.id;
 
   if (uid !== undefined) {
     await timeRuns(`participation:listByUser(take=50)`, n, async () => {

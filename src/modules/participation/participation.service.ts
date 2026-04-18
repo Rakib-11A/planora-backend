@@ -13,6 +13,8 @@ import {
 } from "./participation.repository";
 import { emitNotificationEvent } from "../notification/notification.trigger";
 import { NOTIFICATION_TYPES } from "../notification/notification.types";
+import { paginate } from "../../shared/utils/pagination";
+import { invalidateParticipationSideEffects } from "../../shared/utils/cache";
 
 function deriveInitialStatus(
   isPublic: boolean,
@@ -58,6 +60,7 @@ export async function joinEventService(
   if (existing) {
     if (existing.status === ParticipationStatus.CANCELLED) {
       const restored = await updateParticipationStatus(existing.id, targetStatus);
+      void invalidateParticipationSideEffects(userId, eventId);
       return {
         status: restored.status,
         message:
@@ -82,6 +85,8 @@ export async function joinEventService(
     eventId,
     status: targetStatus,
   });
+
+  void invalidateParticipationSideEffects(userId, eventId);
 
   return {
     status: participation.status,
@@ -111,11 +116,17 @@ export async function cancelParticipationService(
     participation.id,
     ParticipationStatus.CANCELLED,
   );
+  void invalidateParticipationSideEffects(userId, eventId);
   return { message: "Participation cancelled", status: updated.status };
 }
 
-export async function getMyParticipationsService(userId: string) {
-  return listUserParticipations(userId);
+export async function getMyParticipationsService(
+  userId: string,
+  page: number,
+  limit: number,
+) {
+  const { items, total } = await listUserParticipations(userId, page, limit);
+  return paginate({ page, limit }, total, items);
 }
 
 export async function getEventParticipantsService(
@@ -169,6 +180,8 @@ export async function approveParticipantService(
     });
   }
 
+  void invalidateParticipationSideEffects(participantUserId, eventId);
+
   return { message: "Participant approved", status: updated.status };
 }
 
@@ -213,6 +226,8 @@ export async function rejectParticipantService(
       },
     });
   }
+
+  void invalidateParticipationSideEffects(participantUserId, eventId);
 
   return { message: "Participant rejected", status: updated.status };
 }

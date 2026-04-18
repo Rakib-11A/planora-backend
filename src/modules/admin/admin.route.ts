@@ -9,6 +9,8 @@ import {
   getAllEvents,
   getAllReviews,
   getAllUsers,
+  getCacheStats,
+  getRateLimitStats,
   unbanUser,
 } from "./admin.controller";
 
@@ -25,6 +27,10 @@ router.delete("/admin/events/:eventId", deleteEvent);
 
 router.get("/admin/reviews", getAllReviews);
 router.delete("/admin/reviews/:reviewId", deleteReview);
+
+router.get("/admin/cache/stats", getCacheStats);
+
+router.get("/admin/rate-limits", getRateLimitStats);
 
 export default router;
 

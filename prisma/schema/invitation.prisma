@@ -13,9 +13,9 @@ model Invitation {
   invitee User  @relation("InvitationInvitee", fields: [inviteeId], references: [id], onDelete: Cascade)
   inviter User  @relation("InvitationInviter", fields: [inviterId], references: [id], onDelete: Cascade)
 
-  @@unique([eventId, inviteeId])
-  @@index([inviteeId])
-  @@index([inviterId])
-  @@index([eventId, status, createdAt])
-  @@index([inviteeId, createdAt])
+  @@unique([eventId, inviteeId]) // Used by: prevent duplicate invite per event/invitee
+  @@index([inviteeId]) // Used by: GET /api/invitations/me (base filter)
+  @@index([inviterId]) // Used by: inviter-scoped invitation queries
+  @@index([eventId, status, createdAt]) // Used by: GET /api/events/:eventId/invitations?status=
+  @@index([inviteeId, createdAt]) // Used by: GET /api/invitations/me (recent-first listing)
 }

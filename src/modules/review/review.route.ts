@@ -1,6 +1,12 @@
 import { Router } from "express";
 
 import { authMiddleware } from "../../middlewares/auth.middleware";
+import { cacheReviewSummary } from "../../middlewares/cache.middleware";
+import {
+  authenticatedGeneralLimiter,
+  authenticatedWriteLimiter,
+  publicReadLimiter,
+} from "../../middlewares/rateLimiter";
 import {
   createReview,
   deleteReview,
@@ -11,11 +17,34 @@ import {
 
 const router = Router();
 
-router.post("/events/:eventId/reviews", authMiddleware, createReview);
-router.patch("/events/:eventId/reviews", authMiddleware, updateReview);
-router.delete("/events/:eventId/reviews", authMiddleware, deleteReview);
-router.get("/events/:eventId/reviews", getEventReviews);
-router.get("/events/:eventId/reviews/summary", getEventReviewSummary);
+router.post(
+  "/events/:eventId/reviews",
+  authMiddleware,
+  authenticatedGeneralLimiter,
+  authenticatedWriteLimiter,
+  createReview,
+);
+router.patch(
+  "/events/:eventId/reviews",
+  authMiddleware,
+  authenticatedGeneralLimiter,
+  authenticatedWriteLimiter,
+  updateReview,
+);
+router.delete(
+  "/events/:eventId/reviews",
+  authMiddleware,
+  authenticatedGeneralLimiter,
+  authenticatedWriteLimiter,
+  deleteReview,
+);
+router.get("/events/:eventId/reviews", publicReadLimiter, getEventReviews);
+router.get(
+  "/events/:eventId/reviews/summary",
+  publicReadLimiter,
+  cacheReviewSummary,
+  getEventReviewSummary,
+);
 
 export default router;
 

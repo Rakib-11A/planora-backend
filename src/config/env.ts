@@ -44,6 +44,30 @@ function parseSmtpPort(): number {
   return n;
 }
 
+function parseRedisPort(): number {
+  const raw = process.env.REDIS_PORT as string | undefined;
+  if (raw === undefined || raw.trim() === "") {
+    return 6379;
+  }
+  const n = Number.parseInt(raw, 10);
+  if (Number.isNaN(n) || n < 1 || n > 65535) {
+    throw new Error(`[env] Invalid REDIS_PORT: "${raw}".`);
+  }
+  return n;
+}
+
+function parseRedisDb(): number {
+  const raw = process.env.REDIS_DB as string | undefined;
+  if (raw === undefined || raw.trim() === "") {
+    return 0;
+  }
+  const n = Number.parseInt(raw, 10);
+  if (Number.isNaN(n) || n < 0 || n > 15) {
+    throw new Error(`[env] Invalid REDIS_DB: "${raw}". Use 0–15.`);
+  }
+  return n;
+}
+
 function parseNodeEnv(): NodeEnv {
   const v = requiredString("NODE_ENV").toLowerCase() as string;
   if (v !== "development" && v !== "production" && v !== "test") {
@@ -85,6 +109,15 @@ export const config = {
   BETTER_AUTH_URL: requiredString("BETTER_AUTH_URL"),
   GOOGLE_CLIENT_ID: requiredString("GOOGLE_CLIENT_ID"),
   GOOGLE_CLIENT_SECRET: requiredString("GOOGLE_CLIENT_SECRET"),
+
+  /** Empty REDIS_HOST disables Redis caching (fail-open to DB-only). */
+  REDIS_HOST: optionalString("REDIS_HOST", ""),
+  REDIS_PORT: parseRedisPort(),
+  REDIS_PASSWORD: optionalString("REDIS_PASSWORD", ""),
+  REDIS_DB: parseRedisDb(),
+
+  /** Optional; when set, matching `x-bypass-token` header skips rate limits (testing only). */
+  RATE_LIMIT_BYPASS_TOKEN: optionalString("RATE_LIMIT_BYPASS_TOKEN", ""),
 } as const;
 
 export function isSmtpSecure(): boolean {
