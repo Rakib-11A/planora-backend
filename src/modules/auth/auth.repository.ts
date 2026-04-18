@@ -9,6 +9,8 @@ export type UserPublic = {
   role: User["role"];
   avatar: string | null;
   isActive: boolean;
+  isBanned: boolean;
+  bannedAt: Date | null;
   isEmailVerified: boolean;
   authProvider: AuthProvider;
   createdAt: Date;
@@ -21,6 +23,8 @@ const userPublicSelect = {
   role: true,
   avatar: true,
   isActive: true,
+  isBanned: true,
+  bannedAt: true,
   isEmailVerified: true,
   authProvider: true,
   createdAt: true,

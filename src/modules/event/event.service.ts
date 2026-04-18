@@ -1,6 +1,7 @@
 import type { Event } from "@prisma/client";
 
 import { ApiError } from "../../utils/ApiError";
+import { findUserById } from "../auth/auth.repository";
 import {
   createEvent,
   deleteEventById,
@@ -50,6 +51,14 @@ export async function createEventService(
   input: CreateEventInput,
   createdById: string,
 ): Promise<EventWithType> {
+  const user = await findUserById(createdById);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  if (user.isBanned) {
+    throw new ApiError(403, "Banned users cannot create events");
+  }
+
   if (input.dateTime <= new Date()) {
     throw new ApiError(400, "dateTime must be in the future");
   }
@@ -108,6 +117,14 @@ export async function updateEventService(
   requesterId: string,
   input: UpdateEventInput,
 ): Promise<EventWithType> {
+  const user = await findUserById(requesterId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  if (user.isBanned) {
+    throw new ApiError(403, "Banned users cannot update events");
+  }
+
   const existing = await findEventById(id);
   if (!existing) {
     throw new ApiError(404, "Event not found");

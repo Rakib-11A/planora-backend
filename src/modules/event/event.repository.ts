@@ -53,11 +53,14 @@ export async function createEvent(
 }
 
 export async function findEventById(id: string): Promise<EventSafe | null> {
-  const event = await prisma.event.findUnique({ where: { id }, select: eventSelect });
+  const event = await prisma.event.findFirst({
+    where: { id, deletedAt: null },
+    select: eventSelect,
+  });
   if (!event) return null;
 
   const aggregate = await prisma.review.aggregate({
-    where: { eventId: id },
+    where: { eventId: id, deletedAt: null },
     _avg: { rating: true },
     _count: { _all: true },
   });
@@ -73,6 +76,7 @@ export async function listEvents(
   query: EventQuery,
 ): Promise<{ items: EventSafe[]; total: number }> {
   const where: EventWhere = {};
+  where.deletedAt = null;
 
   // Public browsing default.
   where.isPublic = query.isPublic ?? true;
@@ -100,7 +104,7 @@ export async function listEvents(
       ? []
       : await prisma.review.groupBy({
           by: ["eventId"],
-          where: { eventId: { in: eventIds } },
+          where: { eventId: { in: eventIds }, deletedAt: null },
           _avg: { rating: true },
           _count: { _all: true },
         });
@@ -128,7 +132,7 @@ export async function updateEventById(
   });
 
   const aggregate = await prisma.review.aggregate({
-    where: { eventId: id },
+    where: { eventId: id, deletedAt: null },
     _avg: { rating: true },
     _count: { _all: true },
   });
@@ -141,8 +145,9 @@ export async function updateEventById(
 }
 
 export async function deleteEventById(id: string): Promise<EventSafe> {
-  const deleted = await prisma.event.delete({
+  const deleted = await prisma.event.update({
     where: { id },
+    data: { deletedAt: new Date() },
     select: eventSelect,
   });
 

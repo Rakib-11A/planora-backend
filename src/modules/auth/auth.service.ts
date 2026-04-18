@@ -194,6 +194,9 @@ export async function loginUser(
   if (!user.isActive) {
     throw new ApiError(403, "Account deactivated");
   }
+  if (user.isBanned) {
+    throw new ApiError(403, "Account is banned");
+  }
 
   const passwordMatch = await bcrypt.compare(data.password, user.password);
   if (!passwordMatch) {
@@ -220,6 +223,8 @@ export async function loginUser(
     role: user.role,
     avatar: user.avatar,
     isActive: user.isActive,
+    isBanned: user.isBanned,
+    bannedAt: user.bannedAt,
     isEmailVerified: user.isEmailVerified,
     authProvider: user.authProvider,
     createdAt: user.createdAt,

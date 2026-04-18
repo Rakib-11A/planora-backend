@@ -4,6 +4,7 @@ import express, { type Application, type Request, type Response } from "express"
 import helmet from "helmet";
 
 import authRouter from "./modules/auth/auth.routes";
+import adminRouter from "./modules/admin/admin.route";
 import eventRouter from "./modules/event/event.route";
 import invitationRouter from "./modules/invitation/invitation.route";
 import paymentRouter from "./modules/payment/payment.route";
@@ -53,6 +54,7 @@ export function createApp(): Application {
 
   // Section: API routes
   app.use("/api/auth", authRouter);
+  app.use("/api", adminRouter);
   app.use("/api/events", eventRouter);
   app.use("/api", invitationRouter);
   app.use("/api", participationRouter);

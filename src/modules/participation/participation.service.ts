@@ -1,6 +1,7 @@
 import { ParticipationStatus } from "@prisma/client";
 
 import { ApiError } from "../../utils/ApiError";
+import { findUserById } from "../auth/auth.repository";
 import { findEventById } from "../event/event.repository";
 import {
   createParticipation,
@@ -35,6 +36,14 @@ export async function joinEventService(
   eventId: string,
   userId: string,
 ): Promise<{ status: ParticipationStatus; message: string }> {
+  const user = await findUserById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  if (user.isBanned) {
+    throw new ApiError(403, "Banned users cannot join events");
+  }
+
   const event = await findEventById(eventId);
   if (!event) {
     throw new ApiError(404, "Event not found");

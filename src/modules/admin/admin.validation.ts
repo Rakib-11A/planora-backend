@@ -1,11 +1,5 @@
 import { z } from "zod";
 
-export const cuidParamSchema = z.object({
-  userId: z.string().cuid({ message: "Invalid user id" }).optional(),
-  eventId: z.string().cuid({ message: "Invalid event id" }).optional(),
-  reviewId: z.string().cuid({ message: "Invalid review id" }).optional(),
-});
-
 export const userIdParamSchema = z.object({
   userId: z.string().cuid({ message: "Invalid user id" }),
 });

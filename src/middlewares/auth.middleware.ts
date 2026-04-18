@@ -43,6 +43,9 @@ export const authMiddleware = asyncHandler(
     if (!user.isActive) {
       throw new ApiError(403, "Account has been deactivated");
     }
+    if (user.isBanned) {
+      throw new ApiError(403, "Account is banned");
+    }
 
     (req as AuthenticatedRequest).user = {
       id: user.id,
@@ -87,7 +90,7 @@ export const optionalAuthMiddleware = asyncHandler(
     }
 
     const user = await findUserById(payload.sub);
-    if (user !== null && user.isActive) {
+    if (user !== null && user.isActive && !user.isBanned) {
       (req as AuthenticatedRequest).user = {
         id: user.id,
         email: user.email,

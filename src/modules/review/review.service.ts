@@ -1,6 +1,7 @@
 import { ApiError } from "../../utils/ApiError";
 import {
   createReview,
+  findAnyReviewByUserAndEvent,
   deleteReviewById,
   findApprovedParticipation,
   findEventByIdForReview,
@@ -26,7 +27,7 @@ export async function createReviewService(
     throw new ApiError(403, "Only approved participants can review this event");
   }
 
-  const existing = await findReviewByUserAndEvent(userId, eventId);
+  const existing = await findAnyReviewByUserAndEvent(userId, eventId);
   if (existing) {
     throw new ApiError(409, "You have already reviewed this event");
   }
