@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+import {
+  PASSWORD_LOWERCASE_REGEX,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_NUMBER_REGEX,
+  PASSWORD_UPPERCASE_REGEX,
+} from "../../lib/security/password.util";
+
 // Shared helpers
 const emailField = z
   .string({ required_error: "Email is required", invalid_type_error: "Email must be a string" })
@@ -9,10 +16,10 @@ const emailField = z
 
 const strongPassword = z
   .string({ required_error: "Password is required", invalid_type_error: "Password must be a string" })
-  .min(8, { message: "Password must be at least 8 characters" })
-  .regex(/[A-Z]/, { message: "Password must include an uppercase letter" })
-  .regex(/[a-z]/, { message: "Password must include a lowercase letter" })
-  .regex(/[0-9]/, { message: "Password must include a number" });
+  .min(PASSWORD_MIN_LENGTH, { message: "Password must be at least 8 characters" })
+  .regex(PASSWORD_UPPERCASE_REGEX, { message: "Password must include an uppercase letter" })
+  .regex(PASSWORD_LOWERCASE_REGEX, { message: "Password must include a lowercase letter" })
+  .regex(PASSWORD_NUMBER_REGEX, { message: "Password must include a number" });
 
 const otpField = z
   .string({ required_error: "OTP is required", invalid_type_error: "OTP must be a string" })
@@ -27,7 +34,7 @@ export const registerSchema = z.object({
     .max(50, { message: "Name must be at most 50 characters" }),
   email: emailField,
   password: strongPassword,
-});
+}).strict();
 export type RegisterSchema = z.infer<typeof registerSchema>;
 
 // 2) Login
@@ -36,26 +43,26 @@ export const loginSchema = z.object({
   password: z
     .string({ required_error: "Password is required", invalid_type_error: "Password must be a string" })
     .min(1, { message: "Password is required" }),
-});
+}).strict();
 export type LoginSchema = z.infer<typeof loginSchema>;
 
 // 3) Verify Email
 export const verifyEmailSchema = z.object({
   email: emailField,
   otp: otpField,
-});
+}).strict();
 export type VerifyEmailSchema = z.infer<typeof verifyEmailSchema>;
 
 // 4) Resend OTP
 export const resendOtpSchema = z.object({
   email: emailField,
-});
+}).strict();
 export type ResendOtpSchema = z.infer<typeof resendOtpSchema>;
 
 // 5) Forgot Password
 export const forgotPasswordSchema = z.object({
   email: emailField,
-});
+}).strict();
 export type ForgotPasswordSchema = z.infer<typeof forgotPasswordSchema>;
 
 // 6) Reset Password
@@ -68,6 +75,7 @@ export const resetPasswordSchema = z
       .string({ required_error: "Confirm password is required", invalid_type_error: "Confirm password must be a string" })
       .min(1, { message: "Confirm password is required" }),
   })
+  .strict()
   .refine((val) => val.newPassword === val.confirmPassword, {
     path: ["confirmPassword"],
     message: "Passwords do not match",
@@ -85,6 +93,7 @@ export const changePasswordSchema = z
       .string({ required_error: "Confirm password is required", invalid_type_error: "Confirm password must be a string" })
       .min(1, { message: "Confirm password is required" }),
   })
+  .strict()
   .refine((val) => val.newPassword === val.confirmPassword, {
     path: ["confirmPassword"],
     message: "Passwords do not match",

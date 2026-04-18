@@ -15,6 +15,10 @@ import type {
   EventWithType,
 } from "./event.types";
 import type { CreateEventInput, UpdateEventInput } from "./event.validation";
+import {
+  invalidateEventAndReviewCaches,
+  invalidateEventListCaches,
+} from "../../shared/utils/cache";
 
 function toNumberFee(fee: Event["fee"]): number {
   return typeof fee === "number" ? fee : Number(fee.toString());
@@ -74,6 +78,8 @@ export async function createEventService(
     fee: input.fee,
     createdById,
   });
+
+  void invalidateEventListCaches();
 
   return withEventType(event);
 }
@@ -153,6 +159,8 @@ export async function updateEventService(
     createdById: undefined,
   });
 
+  void invalidateEventAndReviewCaches(id);
+
   return withEventType(updated);
 }
 
@@ -173,6 +181,7 @@ export async function deleteEventService(
   }
 
   await deleteEventById(id);
+  void invalidateEventAndReviewCaches(id);
   return { message: "Event deleted successfully" };
 }
 

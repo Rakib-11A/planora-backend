@@ -2,6 +2,8 @@ import type { CookieOptions } from "express";
 import type { Request, Response } from "express";
 
 import { config } from "../../config/env";
+import { logger } from "../../lib/logger/logger";
+import { getClientMetadata } from "../../middlewares/security.middleware";
 import type { AuthenticatedRequest } from "../../types";
 import { ApiError } from "../../utils/ApiError";
 import { ApiResponse } from "../../utils/ApiResponse";
@@ -56,9 +58,8 @@ function clearRefreshCookie(res: Response): void {
 
 export const register = asyncHandler(async (req: Request, res: Response) => {
   const data = registerSchema.parse(req.body);
-  const ip = req.ip ?? req.socket.remoteAddress ?? undefined;
-  const userAgent = req.get("user-agent") ?? undefined;
-  const result = await registerUser(data, { ip, userAgent });
+  const meta = getClientMetadata(req);
+  const result = await registerUser(data, { ...meta, requestId: req.requestId });
   res.status(201).json(new ApiResponse(201, result, result.message));
 });
 
@@ -80,12 +81,8 @@ export const resendVerificationOtp = asyncHandler(async (req: Request, res: Resp
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const data = loginSchema.parse(req.body);
-  const ip = req.ip ?? req.socket.remoteAddress ?? undefined;
-  const userAgent = req.get("user-agent") ?? undefined;
-  const { accessToken, refreshToken: refresh, user } = await loginUser(data, {
-    ip,
-    userAgent,
-  });
+  const meta = getClientMetadata(req);
+  const { accessToken, refreshToken: refresh, user } = await loginUser(data, { ...meta, requestId: req.requestId });
   res.cookie("refreshToken", refresh, getCookieOptions());
   res
     .status(200)
@@ -120,12 +117,26 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
 
 export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
   const { email } = forgotPasswordSchema.parse(req.body);
+  const meta = getClientMetadata(req);
+  logger.info("Password reset requested", {
+    requestId: req.requestId,
+    email: email.toLowerCase(),
+    ip: meta.ip,
+    userAgent: meta.userAgent,
+  });
   const result = await requestPasswordReset(email);
   res.status(200).json(new ApiResponse(200, result, result.message));
 });
 
 export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
   const { email, otp, newPassword } = resetPasswordSchema.parse(req.body);
+  const meta = getClientMetadata(req);
+  logger.info("Password reset attempt", {
+    requestId: req.requestId,
+    email: email.toLowerCase(),
+    ip: meta.ip,
+    userAgent: meta.userAgent,
+  });
   const result = await applyPasswordReset(email, otp, newPassword);
   res.status(200).json(new ApiResponse(200, result, result.message));
 });

@@ -11,6 +11,7 @@ import {
   markNotificationReadById,
 } from "./notification.repository";
 import type { EmitNotificationInput, NotificationQuery } from "./notification.types";
+import { invalidateUserNotificationCaches } from "../../shared/utils/cache";
 
 function basicEmailTemplate(title: string, message: string): string {
   return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;"><h2>${title}</h2><p>${message}</p></body></html>`;
@@ -24,6 +25,7 @@ export async function createNotificationService(
   metadata?: Prisma.InputJsonValue,
 ): Promise<void> {
   await createNotification({ userId, type, title, message, metadata });
+  void invalidateUserNotificationCaches(userId);
 }
 
 export async function emitNotification(
@@ -93,6 +95,7 @@ export async function markNotificationReadService(
   }
 
   await markNotificationReadById(notificationId);
+  void invalidateUserNotificationCaches(userId);
   return { message: "Notification marked as read" };
 }
 
@@ -100,6 +103,7 @@ export async function markAllNotificationsReadService(
   userId: string,
 ): Promise<{ message: string; updatedCount: number }> {
   const { count } = await markAllNotificationsReadByUserId(userId);
+  void invalidateUserNotificationCaches(userId);
   return { message: "All notifications marked as read", updatedCount: count };
 }
 

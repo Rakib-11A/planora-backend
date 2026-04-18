@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 
 import { config, isSmtpSecure } from "./env";
+import { logger } from "../lib/logger/logger";
 
 const transporter = nodemailer.createTransport({
   host: config.SMTP_HOST,
@@ -28,11 +29,16 @@ export async function sendEmail(params: SendEmailParams): Promise<void> {
       html,
     });
     if (config.NODE_ENV === "development") {
-      console.log("[email] Sent:", { to, subject, messageId: info.messageId });
+      logger.debug("Email sent", { to, subject, messageId: info.messageId });
     }
   } catch (err) {
     if (config.NODE_ENV === "development") {
-      console.error("[email] Send failed:", err);
+      logger.error("Email send failed", {
+        to,
+        subject,
+        message: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
     }
     throw err;
   }

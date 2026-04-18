@@ -12,6 +12,7 @@ import {
 } from "./review.repository";
 import type { CreateReviewInput, UpdateReviewInput } from "./review.validation";
 import { paginate } from "../../shared/utils/pagination";
+import { invalidateEventAndReviewCaches } from "../../shared/utils/cache";
 
 export async function createReviewService(
   eventId: string,
@@ -63,6 +64,8 @@ export async function updateReviewService(
     comment: input.comment,
   });
 
+  void invalidateEventAndReviewCaches(eventId);
+
   return { message: "Review updated successfully" };
 }
 
@@ -81,6 +84,7 @@ export async function deleteReviewService(
   }
 
   await deleteReviewById(review.id);
+  void invalidateEventAndReviewCaches(eventId);
   return { message: "Review deleted successfully" };
 }
 

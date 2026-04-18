@@ -16,6 +16,7 @@ import {
 } from "./payment.repository";
 import type { InitiatePaymentResult, VerifyPaymentResult } from "./payment.types";
 import { paginate } from "../../shared/utils/pagination";
+import { invalidateParticipationSideEffects } from "../../shared/utils/cache";
 
 const PROVIDER_NAME = "mock";
 
@@ -130,6 +131,8 @@ export async function verifyPaymentService(
       payment.participation.id,
       nextParticipationStatus,
     );
+
+    void invalidateParticipationSideEffects(userId, payment.eventId);
 
     await emitNotificationEvent({
       userId: payment.user.id,
