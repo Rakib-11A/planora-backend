@@ -17,6 +17,7 @@ enum ParticipationStatus {
   PENDING
   APPROVED
   REJECTED
+  CANCELLED
   BANNED
 }
 
