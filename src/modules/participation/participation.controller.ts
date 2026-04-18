@@ -14,6 +14,7 @@ import {
 } from "./participation.service";
 import {
   eventIdParamSchema,
+  myParticipationsQuerySchema,
   participantParamSchema,
   participantsQuerySchema,
 } from "./participation.validation";
@@ -43,7 +44,8 @@ export const cancelParticipation = asyncHandler(
 export const getMyParticipations = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = requireUserId(req);
-    const data = await getMyParticipationsService(userId);
+    const { page, limit } = myParticipationsQuerySchema.parse(req.query);
+    const data = await getMyParticipationsService(userId, page, limit);
     res
       .status(200)
       .json(new ApiResponse(200, data, "Participations fetched successfully"));

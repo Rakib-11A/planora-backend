@@ -15,10 +15,10 @@ model Participation {
   /// Reserved relation for payment block integration.
   payment Payment?
 
-  @@unique([userId, eventId])
-  @@index([eventId])
-  @@index([userId])
-  @@index([eventId, status, createdAt])
-  @@index([userId, createdAt])
-  @@index([userId, eventId, status])
+  @@unique([userId, eventId]) // Used by: join/cancel participation idempotency checks
+  @@index([eventId]) // Used by: GET /api/events/:eventId/participants
+  @@index([userId]) // Used by: GET /api/me/participations (base filter)
+  @@index([eventId, status, createdAt]) // Used by: GET /api/events/:eventId/participants?status=
+  @@index([userId, createdAt]) // Used by: GET /api/me/participations (recent-first listing)
+  @@index([userId, eventId, status]) // Used by: approved-participation validation before review create
 }

@@ -13,6 +13,7 @@ import {
 } from "./review.service";
 import {
   createReviewSchema,
+  eventReviewsQuerySchema,
   eventIdParamSchema,
   updateReviewSchema,
 } from "./review.validation";
@@ -50,7 +51,8 @@ export const deleteReview = asyncHandler(async (req: Request, res: Response) => 
 
 export const getEventReviews = asyncHandler(async (req: Request, res: Response) => {
   const { eventId } = eventIdParamSchema.parse(req.params);
-  const result = await getEventReviewsService(eventId);
+  const { page, limit } = eventReviewsQuerySchema.parse(req.query);
+  const result = await getEventReviewsService(eventId, page, limit);
   res.status(200).json(new ApiResponse(200, result, "Event reviews fetched successfully"));
 });
 

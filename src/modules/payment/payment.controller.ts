@@ -9,6 +9,7 @@ import {
   initiatePaymentService,
   verifyPaymentService,
 } from "./payment.service";
+import { myPaymentsQuerySchema } from "./payment.validation";
 
 function requireUserId(req: Request): string {
   const userId = (req as AuthenticatedRequest).user?.id;
@@ -42,7 +43,8 @@ export const verifyPayment = asyncHandler(async (req: Request, res: Response) =>
 
 export const getMyPayments = asyncHandler(async (req: Request, res: Response) => {
   const userId = requireUserId(req);
-  const data = await getMyPaymentsService(userId);
+  const { page, limit } = myPaymentsQuerySchema.parse(req.query);
+  const data = await getMyPaymentsService(userId, page, limit);
   res.status(200).json(new ApiResponse(200, data, "Payments fetched successfully"));
 });
 

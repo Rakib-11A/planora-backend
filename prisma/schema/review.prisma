@@ -14,8 +14,8 @@ model Review {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, eventId])
-  @@index([eventId])
-  @@index([eventId, deletedAt])
-  @@index([eventId, deletedAt, createdAt])
+  @@unique([userId, eventId]) // Used by: prevent duplicate review per user/event
+  @@index([eventId]) // Used by: event review summary aggregates
+  @@index([eventId, deletedAt]) // Used by: active review filtering on event pages
+  @@index([eventId, deletedAt, createdAt]) // Used by: GET /api/events/:eventId/reviews (latest-first)
 }

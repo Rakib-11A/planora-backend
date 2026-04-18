@@ -16,9 +16,9 @@ model Payment {
   event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
   participation Participation   @relation(fields: [participationId], references: [id], onDelete: Cascade)
 
-  @@index([eventId])
-  @@index([userId])
-  @@index([participationId])
-  @@index([userId, createdAt])
-  @@index([eventId, status])
+  @@index([eventId]) // Used by: event payment lookup and verification checks
+  @@index([userId]) // Used by: GET /api/payments/me (base filter)
+  @@index([participationId]) // Used by: payment existence checks per participation
+  @@index([userId, createdAt]) // Used by: GET /api/payments/me (recent-first listing)
+  @@index([eventId, status]) // Used by: admin/monitoring filters by event and payment state
 }

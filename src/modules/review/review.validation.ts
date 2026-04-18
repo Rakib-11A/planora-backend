@@ -30,7 +30,13 @@ export const updateReviewSchema = z
     message: "At least one field must be provided",
   });
 
+export const eventReviewsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+});
+
 export type EventIdParamInput = z.infer<typeof eventIdParamSchema>;
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;
 export type UpdateReviewInput = z.infer<typeof updateReviewSchema>;
+export type EventReviewsQueryInput = z.infer<typeof eventReviewsQuerySchema>;
 

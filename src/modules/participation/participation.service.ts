@@ -13,6 +13,7 @@ import {
 } from "./participation.repository";
 import { emitNotificationEvent } from "../notification/notification.trigger";
 import { NOTIFICATION_TYPES } from "../notification/notification.types";
+import { paginate } from "../../shared/utils/pagination";
 
 function deriveInitialStatus(
   isPublic: boolean,
@@ -114,8 +115,13 @@ export async function cancelParticipationService(
   return { message: "Participation cancelled", status: updated.status };
 }
 
-export async function getMyParticipationsService(userId: string) {
-  return listUserParticipations(userId);
+export async function getMyParticipationsService(
+  userId: string,
+  page: number,
+  limit: number,
+) {
+  const { items, total } = await listUserParticipations(userId, page, limit);
+  return paginate({ page, limit }, total, items);
 }
 
 export async function getEventParticipantsService(

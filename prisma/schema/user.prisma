@@ -40,4 +40,6 @@ model User {
 
   /// Email verification / password-reset codes (hashed); removed when user is deleted.
   otps Otp[]
+
+  @@index([createdAt]) // Used by: GET /api/admin/users (ordered user listing)
 }

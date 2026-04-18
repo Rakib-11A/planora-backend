@@ -101,12 +101,26 @@ export async function findPaymentById(
   });
 }
 
-export async function listUserPayments(userId: string): Promise<PaymentWithEvent[]> {
-  return prisma.payment.findMany({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    select: paymentWithEventSelect,
-  });
+export async function listUserPayments(
+  userId: string,
+  page: number,
+  limit: number,
+): Promise<{ items: PaymentWithEvent[]; total: number }> {
+  const skip = (page - 1) * limit;
+  const where: Prisma.PaymentWhereInput = { userId };
+
+  const [items, total] = await prisma.$transaction([
+    prisma.payment.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      select: paymentWithEventSelect,
+    }),
+    prisma.payment.count({ where }),
+  ]);
+
+  return { items, total };
 }
 
 export async function updateParticipationStatusById(
