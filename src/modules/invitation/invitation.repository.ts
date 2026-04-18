@@ -163,3 +163,18 @@ export async function listEventInvitations(
   });
 }
 
+export async function findUserForNotification(userId: string): Promise<{
+  id: string;
+  name: string;
+  email: string;
+} | null> {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  });
+}
+

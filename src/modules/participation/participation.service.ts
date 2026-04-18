@@ -5,10 +5,13 @@ import { findEventById } from "../event/event.repository";
 import {
   createParticipation,
   findParticipationByUserAndEvent,
+  findParticipationWithUserByUserAndEvent,
   listEventParticipants,
   listUserParticipations,
   updateParticipationStatus,
 } from "./participation.repository";
+import { emitNotificationEvent } from "../notification/notification.trigger";
+import { NOTIFICATION_TYPES } from "../notification/notification.types";
 
 function deriveInitialStatus(
   isPublic: boolean,
@@ -137,6 +140,26 @@ export async function approveParticipantService(
     participation.id,
     ParticipationStatus.APPROVED,
   );
+
+  const approved = await findParticipationWithUserByUserAndEvent(
+    participantUserId,
+    eventId,
+  );
+  if (approved) {
+    await emitNotificationEvent({
+      userId: approved.user.id,
+      type: NOTIFICATION_TYPES.PARTICIPATION_APPROVED,
+      title: "Participation approved",
+      message: `Your request was approved for "${approved.event.title}".`,
+      metadata: { eventId, participationId: approved.id },
+      email: {
+        to: approved.user.email,
+        subject: "Planora: Participation Approved",
+        html: `<p>Hello ${approved.user.name},</p><p>Your participation request for <strong>${approved.event.title}</strong> has been approved.</p>`,
+      },
+    });
+  }
+
   return { message: "Participant approved", status: updated.status };
 }
 
@@ -162,6 +185,26 @@ export async function rejectParticipantService(
     participation.id,
     ParticipationStatus.REJECTED,
   );
+
+  const rejected = await findParticipationWithUserByUserAndEvent(
+    participantUserId,
+    eventId,
+  );
+  if (rejected) {
+    await emitNotificationEvent({
+      userId: rejected.user.id,
+      type: NOTIFICATION_TYPES.PARTICIPATION_REJECTED,
+      title: "Participation rejected",
+      message: `Your request was rejected for "${rejected.event.title}".`,
+      metadata: { eventId, participationId: rejected.id },
+      email: {
+        to: rejected.user.email,
+        subject: "Planora: Participation Update",
+        html: `<p>Hello ${rejected.user.name},</p><p>Your participation request for <strong>${rejected.event.title}</strong> has been rejected.</p>`,
+      },
+    });
+  }
+
   return { message: "Participant rejected", status: updated.status };
 }
 

@@ -11,11 +11,14 @@ import {
   findEventByIdForInvitation,
   findInvitationByEventAndInvitee,
   findInvitationById,
+  findUserForNotification,
   listEventInvitations,
   listMyInvitations,
   updateInvitationById,
   updateInvitationStatus,
 } from "./invitation.repository";
+import { emitNotificationEvent } from "../notification/notification.trigger";
+import { NOTIFICATION_TYPES } from "../notification/notification.types";
 
 function deriveParticipationStatus(
   isPublic: boolean,
@@ -76,6 +79,23 @@ export async function sendInvitationService(
       inviterId,
       status: InvitationStatus.PENDING,
     });
+
+    const invitee = await findUserForNotification(inviteeId);
+    if (invitee) {
+      await emitNotificationEvent({
+        userId: invitee.id,
+        type: NOTIFICATION_TYPES.INVITATION_RECEIVED,
+        title: "New event invitation",
+        message: `You received an invitation for "${event.title}".`,
+        metadata: { eventId, inviterId },
+        email: {
+          to: invitee.email,
+          subject: "Planora: New Invitation Received",
+          html: `<p>Hello ${invitee.name},</p><p>You received an invitation for <strong>${event.title}</strong>.</p>`,
+        },
+      });
+    }
+
     return { message: "Invitation sent", status: reopened.status };
   }
 
@@ -85,6 +105,23 @@ export async function sendInvitationService(
     inviteeId,
     status: InvitationStatus.PENDING,
   });
+
+  const invitee = await findUserForNotification(inviteeId);
+  if (invitee) {
+    await emitNotificationEvent({
+      userId: invitee.id,
+      type: NOTIFICATION_TYPES.INVITATION_RECEIVED,
+      title: "New event invitation",
+      message: `You received an invitation for "${event.title}".`,
+      metadata: { eventId, inviterId },
+      email: {
+        to: invitee.email,
+        subject: "Planora: New Invitation Received",
+        html: `<p>Hello ${invitee.name},</p><p>You received an invitation for <strong>${event.title}</strong>.</p>`,
+      },
+    });
+  }
+
   return { message: "Invitation sent", status: created.status };
 }
 
@@ -137,6 +174,22 @@ export async function acceptInvitationService(
   }
 
   await updateInvitationStatus(invitation.id, InvitationStatus.ACCEPTED);
+
+  const inviter = await findUserForNotification(invitation.inviterId);
+  if (inviter) {
+    await emitNotificationEvent({
+      userId: inviter.id,
+      type: NOTIFICATION_TYPES.INVITATION_ACCEPTED,
+      title: "Invitation accepted",
+      message: `Your invitation was accepted for "${invitation.event.title}".`,
+      metadata: { eventId: invitation.eventId, inviteeId: userId },
+      email: {
+        to: inviter.email,
+        subject: "Planora: Invitation Accepted",
+        html: `<p>Hello ${inviter.name},</p><p>Your invitation for <strong>${invitation.event.title}</strong> was accepted.</p>`,
+      },
+    });
+  }
 
   return {
     message: "Invitation accepted",

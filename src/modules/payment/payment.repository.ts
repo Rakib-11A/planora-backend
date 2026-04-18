@@ -41,10 +41,18 @@ const paymentWithRelationsSelect = {
   event: {
     select: {
       id: true,
+      title: true,
       isPublic: true,
       isPaid: true,
       fee: true,
       createdById: true,
+    },
+  },
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
     },
   },
   participation: {

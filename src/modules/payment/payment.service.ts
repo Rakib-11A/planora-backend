@@ -3,6 +3,8 @@ import { ParticipationStatus, PaymentStatus } from "@prisma/client";
 import { mockPaymentProvider } from "../../lib/payment/mock.provider";
 import type { PaymentProvider } from "../../lib/payment/payment.provider";
 import { ApiError } from "../../utils/ApiError";
+import { emitNotificationEvent } from "../notification/notification.trigger";
+import { NOTIFICATION_TYPES } from "../notification/notification.types";
 import {
   createPayment,
   findEventParticipationByUser,
@@ -127,6 +129,23 @@ export async function verifyPaymentService(
       payment.participation.id,
       nextParticipationStatus,
     );
+
+    await emitNotificationEvent({
+      userId: payment.user.id,
+      type: NOTIFICATION_TYPES.PAYMENT_SUCCESS,
+      title: "Payment successful",
+      message: `Payment completed for "${payment.event.title}".`,
+      metadata: {
+        paymentId: payment.id,
+        eventId: payment.eventId,
+        transactionId: providerResult.transactionId ?? payment.transactionId,
+      },
+      email: {
+        to: payment.user.email,
+        subject: "Planora: Payment Success",
+        html: `<p>Hello ${payment.user.name},</p><p>Your payment for <strong>${payment.event.title}</strong> was successful.</p>`,
+      },
+    });
 
     return {
       paymentId: payment.id,
