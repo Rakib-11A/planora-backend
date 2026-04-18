@@ -20,6 +20,8 @@ export type EventSafe = Pick<
   | "createdAt"
   | "updatedAt"
 > & {
+  avgRating: number;
+  totalReviews: number;
   createdBy: {
     id: string;
     name: string;

@@ -50,7 +50,7 @@ export async function initiatePaymentService(
   }
 
   let paymentId: string;
-  if (existing && existing.status === PaymentStatus.FAILED) {
+  if (existing && existing.status === PaymentStatus.PENDING) {
     const reset = await updatePaymentById(existing.id, {
       status: PaymentStatus.INITIATED,
       provider: PROVIDER_NAME,
@@ -136,13 +136,13 @@ export async function verifyPaymentService(
   }
 
   await updatePaymentById(payment.id, {
-    status: PaymentStatus.FAILED,
+    status: PaymentStatus.PENDING,
     transactionId: providerResult.transactionId ?? payment.transactionId,
   });
 
   return {
     paymentId: payment.id,
-    status: PaymentStatus.FAILED,
+    status: PaymentStatus.PENDING,
     participationStatus: payment.participation.status,
   };
 }
