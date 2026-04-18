@@ -11,6 +11,7 @@ model Event {
   isPaid      Boolean  @default(false)
   fee         Decimal  @default(0) @db.Decimal(12, 2)
   createdById String
+  deletedAt   DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -25,4 +26,5 @@ model Event {
   @@index([dateTime])
   @@index([isPublic, isPaid, dateTime])
   @@index([createdById])
+  @@index([deletedAt, dateTime])
 }

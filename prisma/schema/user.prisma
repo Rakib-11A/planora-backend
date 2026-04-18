@@ -8,6 +8,8 @@ model User {
   role      UserRole @default(USER)
   avatar    String?
   isActive  Boolean  @default(true)
+  isBanned  Boolean  @default(false)
+  bannedAt  DateTime?
 
   /// True once the user has verified their email (OTP or link flow).
   isEmailVerified Boolean @default(false)

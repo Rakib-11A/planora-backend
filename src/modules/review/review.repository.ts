@@ -23,13 +23,26 @@ const reviewSelect = {
 export type EventReview = Prisma.ReviewGetPayload<{ select: typeof reviewSelect }>;
 
 export async function findEventByIdForReview(eventId: string): Promise<{ id: string } | null> {
-  return prisma.event.findUnique({
-    where: { id: eventId },
+  return prisma.event.findFirst({
+    where: { id: eventId, deletedAt: null },
     select: { id: true },
   });
 }
 
 export async function findReviewByUserAndEvent(
+  userId: string,
+  eventId: string,
+): Promise<Review | null> {
+  return prisma.review.findFirst({
+    where: {
+      userId,
+      eventId,
+      deletedAt: null,
+    },
+  });
+}
+
+export async function findAnyReviewByUserAndEvent(
   userId: string,
   eventId: string,
 ): Promise<Review | null> {
@@ -57,12 +70,15 @@ export async function updateReviewById(
 }
 
 export async function deleteReviewById(id: string): Promise<Review> {
-  return prisma.review.delete({ where: { id } });
+  return prisma.review.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
 }
 
 export async function listEventReviews(eventId: string): Promise<EventReview[]> {
   return prisma.review.findMany({
-    where: { eventId },
+    where: { eventId, deletedAt: null },
     orderBy: { createdAt: "desc" },
     select: reviewSelect,
   });
@@ -90,15 +106,15 @@ export async function getEventRatingSummary(eventId: string): Promise<{
   const [aggregate, oneStar, twoStar, threeStar, fourStar, fiveStar] =
     await prisma.$transaction([
     prisma.review.aggregate({
-      where: { eventId },
+      where: { eventId, deletedAt: null },
       _avg: { rating: true },
       _count: { _all: true },
     }),
-    prisma.review.count({ where: { eventId, rating: 1 } }),
-    prisma.review.count({ where: { eventId, rating: 2 } }),
-    prisma.review.count({ where: { eventId, rating: 3 } }),
-    prisma.review.count({ where: { eventId, rating: 4 } }),
-    prisma.review.count({ where: { eventId, rating: 5 } }),
+    prisma.review.count({ where: { eventId, rating: 1, deletedAt: null } }),
+    prisma.review.count({ where: { eventId, rating: 2, deletedAt: null } }),
+    prisma.review.count({ where: { eventId, rating: 3, deletedAt: null } }),
+    prisma.review.count({ where: { eventId, rating: 4, deletedAt: null } }),
+    prisma.review.count({ where: { eventId, rating: 5, deletedAt: null } }),
   ]);
 
   return {
