@@ -16,4 +16,6 @@ model Invitation {
   @@unique([eventId, inviteeId])
   @@index([inviteeId])
   @@index([inviterId])
+  @@index([eventId, status, createdAt])
+  @@index([inviteeId, createdAt])
 }

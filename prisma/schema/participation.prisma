@@ -18,4 +18,7 @@ model Participation {
   @@unique([userId, eventId])
   @@index([eventId])
   @@index([userId])
+  @@index([eventId, status, createdAt])
+  @@index([userId, createdAt])
+  @@index([userId, eventId, status])
 }

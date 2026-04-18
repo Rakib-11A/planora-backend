@@ -27,4 +27,6 @@ model Event {
   @@index([isPublic, isPaid, dateTime])
   @@index([createdById])
   @@index([deletedAt, dateTime])
+  /// Supports common public listing: deletedAt + visibility flags + sort by dateTime
+  @@index([deletedAt, isPublic, isPaid, dateTime])
 }
