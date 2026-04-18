@@ -30,9 +30,11 @@ enum InvitationStatus {
 
 /// Payment lifecycle for registration fees.
 enum PaymentStatus {
+  INITIATED
+  SUCCESS
+  FAILED
   PENDING
   COMPLETED
-  FAILED
   REFUNDED
 }
 
