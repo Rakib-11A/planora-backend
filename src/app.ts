@@ -8,6 +8,7 @@ import eventRouter from "./modules/event/event.route";
 import invitationRouter from "./modules/invitation/invitation.route";
 import paymentRouter from "./modules/payment/payment.route";
 import participationRouter from "./modules/participation/participation.route";
+import reviewRouter from "./modules/review/review.route";
 import { globalErrorHandler } from "./middlewares/error.middleware";
 import { notFoundHandler } from "./middlewares/notFound.middleware";
 
@@ -55,6 +56,7 @@ export function createApp(): Application {
   app.use("/api", invitationRouter);
   app.use("/api", participationRouter);
   app.use("/api", paymentRouter);
+  app.use("/api", reviewRouter);
 
   app.use(notFoundHandler);
   app.use(globalErrorHandler);

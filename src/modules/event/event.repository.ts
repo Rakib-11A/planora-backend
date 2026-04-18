@@ -25,15 +25,48 @@ const eventSelect = {
 } as const;
 
 type EventWhere = Prisma.EventWhereInput;
+type EventBase = Prisma.EventGetPayload<{ select: typeof eventSelect }>;
+
+function withRatings(
+  events: EventBase[],
+  aggregates: Array<{ eventId: string; avgRating: number; totalReviews: number }>,
+): EventSafe[] {
+  const aggregateMap = new Map(
+    aggregates.map((item) => [item.eventId, item] as const),
+  );
+
+  return events.map((event) => {
+    const aggregate = aggregateMap.get(event.id);
+    return {
+      ...event,
+      avgRating: aggregate?.avgRating ?? 0,
+      totalReviews: aggregate?.totalReviews ?? 0,
+    };
+  });
+}
 
 export async function createEvent(
   data: Prisma.EventUncheckedCreateInput,
 ): Promise<EventSafe> {
-  return prisma.event.create({ data, select: eventSelect });
+  const event = await prisma.event.create({ data, select: eventSelect });
+  return { ...event, avgRating: 0, totalReviews: 0 };
 }
 
 export async function findEventById(id: string): Promise<EventSafe | null> {
-  return prisma.event.findUnique({ where: { id }, select: eventSelect });
+  const event = await prisma.event.findUnique({ where: { id }, select: eventSelect });
+  if (!event) return null;
+
+  const aggregate = await prisma.review.aggregate({
+    where: { eventId: id },
+    _avg: { rating: true },
+    _count: { _all: true },
+  });
+
+  return {
+    ...event,
+    avgRating: Number(aggregate._avg.rating ?? 0),
+    totalReviews: aggregate._count._all,
+  };
 }
 
 export async function listEvents(
@@ -50,7 +83,7 @@ export async function listEvents(
 
   const skip = (query.page - 1) * query.limit;
 
-  const [items, total] = await prisma.$transaction([
+  const [events, total] = await prisma.$transaction([
     prisma.event.findMany({
       where,
       orderBy: { dateTime: "asc" },
@@ -61,6 +94,26 @@ export async function listEvents(
     prisma.event.count({ where }),
   ]);
 
+  const eventIds = events.map((event) => event.id);
+  const grouped =
+    eventIds.length === 0
+      ? []
+      : await prisma.review.groupBy({
+          by: ["eventId"],
+          where: { eventId: { in: eventIds } },
+          _avg: { rating: true },
+          _count: { _all: true },
+        });
+
+  const items = withRatings(
+    events,
+    grouped.map((row) => ({
+      eventId: row.eventId,
+      avgRating: Number(row._avg.rating ?? 0),
+      totalReviews: row._count._all,
+    })),
+  );
+
   return { items, total };
 }
 
@@ -68,17 +121,35 @@ export async function updateEventById(
   id: string,
   data: Prisma.EventUncheckedUpdateInput,
 ): Promise<EventSafe> {
-  return prisma.event.update({
+  const updated = await prisma.event.update({
     where: { id },
     data,
     select: eventSelect,
   });
+
+  const aggregate = await prisma.review.aggregate({
+    where: { eventId: id },
+    _avg: { rating: true },
+    _count: { _all: true },
+  });
+
+  return {
+    ...updated,
+    avgRating: Number(aggregate._avg.rating ?? 0),
+    totalReviews: aggregate._count._all,
+  };
 }
 
 export async function deleteEventById(id: string): Promise<EventSafe> {
-  return prisma.event.delete({
+  const deleted = await prisma.event.delete({
     where: { id },
     select: eventSelect,
   });
+
+  return {
+    ...deleted,
+    avgRating: 0,
+    totalReviews: 0,
+  };
 }
 
