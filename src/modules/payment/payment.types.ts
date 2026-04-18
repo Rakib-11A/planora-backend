@@ -1,4 +1,4 @@
-import type { PaymentStatus } from "@prisma/client";
+import type { PaymentStatus, ParticipationStatus } from "@prisma/client";
 
 export type InitiatePaymentResult = {
   paymentId: string;
@@ -9,6 +9,6 @@ export type InitiatePaymentResult = {
 export type VerifyPaymentResult = {
   paymentId: string;
   status: PaymentStatus;
-  participationStatus: "PENDING" | "APPROVED";
+  participationStatus: ParticipationStatus;
 };
 

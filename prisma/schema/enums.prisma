@@ -26,13 +26,13 @@ enum InvitationStatus {
   PENDING
   ACCEPTED
   DECLINED
+  CANCELLED
 }
 
 /// Payment lifecycle for registration fees.
 enum PaymentStatus {
   INITIATED
   SUCCESS
-  FAILED
   PENDING
   COMPLETED
   REFUNDED

@@ -5,6 +5,7 @@ import helmet from "helmet";
 
 import authRouter from "./modules/auth/auth.routes";
 import eventRouter from "./modules/event/event.route";
+import invitationRouter from "./modules/invitation/invitation.route";
 import paymentRouter from "./modules/payment/payment.route";
 import participationRouter from "./modules/participation/participation.route";
 import { globalErrorHandler } from "./middlewares/error.middleware";
@@ -51,6 +52,7 @@ export function createApp(): Application {
   // Section: API routes
   app.use("/api/auth", authRouter);
   app.use("/api/events", eventRouter);
+  app.use("/api", invitationRouter);
   app.use("/api", participationRouter);
   app.use("/api", paymentRouter);
 

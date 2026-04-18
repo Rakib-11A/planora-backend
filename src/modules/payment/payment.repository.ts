@@ -1,8 +1,4 @@
-import type {
-  Payment,
-  PaymentStatus,
-  Prisma,
-} from "@prisma/client";
+import type { Payment, Prisma } from "@prisma/client";
 
 import prisma from "../../config/database";
 

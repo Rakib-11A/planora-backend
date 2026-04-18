@@ -29,11 +29,9 @@ export async function initiatePaymentService(
   if (!participation) {
     throw new ApiError(404, "Participation not found for this event");
   }
-
   if (!participation.event.isPaid) {
     throw new ApiError(400, "Cannot pay for a free event");
   }
-
   if (participation.status !== ParticipationStatus.PENDING) {
     throw new ApiError(400, "Payment can only be initiated for pending participation");
   }
@@ -133,10 +131,7 @@ export async function verifyPaymentService(
     return {
       paymentId: payment.id,
       status: PaymentStatus.SUCCESS,
-      participationStatus:
-        nextParticipationStatus === ParticipationStatus.APPROVED
-          ? "APPROVED"
-          : "PENDING",
+      participationStatus: nextParticipationStatus,
     };
   }
 
@@ -148,10 +143,7 @@ export async function verifyPaymentService(
   return {
     paymentId: payment.id,
     status: PaymentStatus.FAILED,
-    participationStatus:
-      payment.participation.status === ParticipationStatus.APPROVED
-        ? "APPROVED"
-        : "PENDING",
+    participationStatus: payment.participation.status,
   };
 }
 

@@ -35,3 +35,4 @@ CREATE INDEX "Payment_participationId_idx" ON "Payment"("participationId");
 
 -- AddForeignKey
 ALTER TABLE "Payment" ADD CONSTRAINT "Payment_participationId_fkey" FOREIGN KEY ("participationId") REFERENCES "Participation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
