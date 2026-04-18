@@ -3,8 +3,10 @@ import compression from "compression";
 import cors from "cors";
 import express, { type Application, type Request, type Response } from "express";
 import helmet from "helmet";
+import swaggerUi from "swagger-ui-express";
 
 import { config } from "./config/env";
+import { swaggerSpec } from "./config/swagger";
 import { globalLimiter } from "./middlewares/rate-limit.middleware";
 import { requestLoggerMiddleware } from "./middlewares/request-logger.middleware";
 import { responseTimeMiddleware } from "./middlewares/responseTime.middleware";
@@ -94,6 +96,11 @@ export function createApp(): Application {
 
   app.get("/health", (_req: Request, res: Response) => {
     res.status(200).json({ status: "ok", service: "planora-backend" });
+  });
+
+  app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+  app.get("/api/docs.json", (_req: Request, res: Response) => {
+    res.status(200).json(swaggerSpec);
   });
 
   // Section: API routes
