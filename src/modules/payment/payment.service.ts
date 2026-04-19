@@ -1,6 +1,10 @@
 import { ParticipationStatus, PaymentStatus } from "@prisma/client";
 
-import { mockPaymentProvider } from "../../lib/payment/mock.provider";
+import { config } from "../../config/env";
+import {
+  getActivePaymentProviderForInitiate,
+  getPaymentProviderByStoredName,
+} from "../../lib/payment/payment.provider.factory";
 import type { PaymentProvider } from "../../lib/payment/payment.provider";
 import { ApiError } from "../../utils/ApiError";
 import { emitNotificationEvent } from "../notification/notification.trigger";
@@ -14,21 +18,76 @@ import {
   updateParticipationStatusById,
   updatePaymentById,
 } from "./payment.repository";
+import type { PaymentWithRelations } from "./payment.repository";
 import type { InitiatePaymentResult, VerifyPaymentResult } from "./payment.types";
 import { paginate } from "../../shared/utils/pagination";
 import { invalidateParticipationSideEffects } from "../../shared/utils/cache";
-
-const PROVIDER_NAME = "mock";
 
 function decimalToNumber(v: { toString(): string }): number {
   return Number(v.toString());
 }
 
+/**
+ * After a gateway confirms funds, keep participation **PENDING** so the host can approve
+ * (paid public + paid private per Planora spec).
+ */
+export async function finalizePaymentAsSuccessfulFromGateway(
+  payment: PaymentWithRelations,
+  resolvedTransactionId: string | null,
+): Promise<VerifyPaymentResult> {
+  if (payment.status === PaymentStatus.SUCCESS) {
+    return {
+      paymentId: payment.id,
+      status: PaymentStatus.SUCCESS,
+      participationStatus: payment.participation.status,
+    };
+  }
+
+  if (payment.status !== PaymentStatus.INITIATED && payment.status !== PaymentStatus.PENDING) {
+    throw new ApiError(400, "Payment cannot be finalized in its current state");
+  }
+
+  await updatePaymentById(payment.id, {
+    status: PaymentStatus.SUCCESS,
+    transactionId: resolvedTransactionId ?? payment.transactionId,
+  });
+
+  await updateParticipationStatusById(payment.participation.id, ParticipationStatus.PENDING);
+
+  void invalidateParticipationSideEffects(payment.userId, payment.eventId);
+
+  await emitNotificationEvent({
+    userId: payment.user.id,
+    type: NOTIFICATION_TYPES.PAYMENT_SUCCESS,
+    title: "Payment successful",
+    message: `Payment received for "${payment.event.title}". The organizer will confirm your registration.`,
+    metadata: {
+      paymentId: payment.id,
+      eventId: payment.eventId,
+      transactionId: resolvedTransactionId ?? payment.transactionId,
+    },
+    email: {
+      to: payment.user.email,
+      subject: "Planora: Payment received",
+      html: `<p>Hello ${payment.user.name},</p><p>We received your payment for <strong>${payment.event.title}</strong>.</p><p>The organizer will confirm your registration shortly.</p>`,
+    },
+  });
+
+  return {
+    paymentId: payment.id,
+    status: PaymentStatus.SUCCESS,
+    participationStatus: ParticipationStatus.PENDING,
+  };
+}
+
 export async function initiatePaymentService(
   eventId: string,
   userId: string,
-  provider: PaymentProvider = mockPaymentProvider,
+  providerOverride?: PaymentProvider,
 ): Promise<InitiatePaymentResult> {
+  const { name: providerName, provider: defaultProvider } = getActivePaymentProviderForInitiate();
+  const provider = providerOverride ?? defaultProvider;
+
   const participation = await findEventParticipationByUser(eventId, userId);
   if (!participation) {
     throw new ApiError(404, "Participation not found for this event");
@@ -57,7 +116,7 @@ export async function initiatePaymentService(
   if (existing && existing.status === PaymentStatus.PENDING) {
     const reset = await updatePaymentById(existing.id, {
       status: PaymentStatus.INITIATED,
-      provider: PROVIDER_NAME,
+      provider: providerName,
       transactionId: null,
     });
     paymentId = reset.id;
@@ -68,22 +127,33 @@ export async function initiatePaymentService(
       participationId: participation.id,
       amount,
       status: PaymentStatus.INITIATED,
-      provider: PROVIDER_NAME,
+      provider: providerName,
       transactionId: null,
     });
     paymentId = created.id;
   }
 
+  const apiBase = (
+    (process.env.PUBLIC_API_URL ?? "").trim() || config.BETTER_AUTH_URL
+  ).replace(/\/$/, "");
+  const frontendBase = config.FRONTEND_URL.replace(/\/$/, "");
+
   const providerResult = await provider.createPayment({
     paymentId,
     amount,
     currency: "BDT",
-    metadata: { userId, eventId, participationId: participation.id },
+    metadata: {
+      userId,
+      eventId,
+      participationId: participation.id,
+      apiBaseUrl: apiBase,
+      frontendBaseUrl: frontendBase,
+    },
   });
 
   await updatePaymentById(paymentId, {
     transactionId: providerResult.transactionId ?? null,
-    provider: PROVIDER_NAME,
+    provider: providerName,
   });
 
   return {
@@ -96,7 +166,7 @@ export async function initiatePaymentService(
 export async function verifyPaymentService(
   paymentId: string,
   userId: string,
-  provider: PaymentProvider = mockPaymentProvider,
+  providerOverride?: PaymentProvider,
 ): Promise<VerifyPaymentResult> {
   const payment = await findPaymentById(paymentId);
   if (!payment) {
@@ -112,50 +182,17 @@ export async function verifyPaymentService(
     throw new ApiError(400, "Only initiated payments can be verified");
   }
 
+  const { provider } = providerOverride
+    ? { provider: providerOverride }
+    : getPaymentProviderByStoredName(payment.provider);
+
   const providerResult = await provider.verifyPayment({
     paymentId: payment.id,
     transactionId: payment.transactionId ?? undefined,
   });
 
   if (providerResult.status === "SUCCESS") {
-    await updatePaymentById(payment.id, {
-      status: PaymentStatus.SUCCESS,
-      transactionId: providerResult.transactionId ?? payment.transactionId,
-    });
-
-    const nextParticipationStatus = payment.event.isPublic
-      ? ParticipationStatus.APPROVED
-      : ParticipationStatus.PENDING;
-
-    await updateParticipationStatusById(
-      payment.participation.id,
-      nextParticipationStatus,
-    );
-
-    void invalidateParticipationSideEffects(userId, payment.eventId);
-
-    await emitNotificationEvent({
-      userId: payment.user.id,
-      type: NOTIFICATION_TYPES.PAYMENT_SUCCESS,
-      title: "Payment successful",
-      message: `Payment completed for "${payment.event.title}".`,
-      metadata: {
-        paymentId: payment.id,
-        eventId: payment.eventId,
-        transactionId: providerResult.transactionId ?? payment.transactionId,
-      },
-      email: {
-        to: payment.user.email,
-        subject: "Planora: Payment Success",
-        html: `<p>Hello ${payment.user.name},</p><p>Your payment for <strong>${payment.event.title}</strong> was successful.</p>`,
-      },
-    });
-
-    return {
-      paymentId: payment.id,
-      status: PaymentStatus.SUCCESS,
-      participationStatus: nextParticipationStatus,
-    };
+    return finalizePaymentAsSuccessfulFromGateway(payment, providerResult.transactionId ?? null);
   }
 
   await updatePaymentById(payment.id, {
@@ -178,4 +215,3 @@ export async function getMyPaymentsService(
   const { items, total } = await listUserPayments(userId, page, limit);
   return paginate({ page, limit }, total, items);
 }
-

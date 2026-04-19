@@ -101,6 +101,15 @@ export async function findPaymentById(
   });
 }
 
+export async function findPaymentByTransactionId(
+  transactionId: string,
+): Promise<PaymentWithRelations | null> {
+  return prisma.payment.findFirst({
+    where: { transactionId },
+    select: paymentWithRelationsSelect,
+  });
+}
+
 export async function listUserPayments(
   userId: string,
   page: number,

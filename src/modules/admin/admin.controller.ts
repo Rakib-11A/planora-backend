@@ -11,6 +11,8 @@ import {
   getAllUsersService,
   getCacheStatsService,
   getRateLimitStatsService,
+  getSiteFeaturedService,
+  setSiteFeaturedService,
   unbanUserService,
 } from "./admin.service";
 import {
@@ -19,6 +21,7 @@ import {
   adminUsersQuerySchema,
   eventIdParamSchema,
   reviewIdParamSchema,
+  setSiteFeaturedBodySchema,
   userIdParamSchema,
 } from "./admin.validation";
 
@@ -72,5 +75,16 @@ export const getCacheStats = asyncHandler(async (_req: Request, res: Response) =
 export const getRateLimitStats = asyncHandler(async (_req: Request, res: Response) => {
   const data = await getRateLimitStatsService();
   res.status(200).json(new ApiResponse(200, data, "Rate limit stats"));
+});
+
+export const getSiteFeatured = asyncHandler(async (_req: Request, res: Response) => {
+  const data = await getSiteFeaturedService();
+  res.status(200).json(new ApiResponse(200, data, "Site featured event"));
+});
+
+export const setSiteFeatured = asyncHandler(async (req: Request, res: Response) => {
+  const body = setSiteFeaturedBodySchema.parse(req.body);
+  const data = await setSiteFeaturedService(body.eventId);
+  res.status(200).json(new ApiResponse(200, data, "Featured event updated"));
 });
 

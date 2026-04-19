@@ -55,6 +55,8 @@ type CreateLimiterParams = {
   redisPrefix: string;
   blockCounterBucket: string;
   keyGenerator: Options["keyGenerator"];
+  /** Extra skip predicate (e.g. payment gateway IPN callbacks). */
+  skipWhen?: (req: Request) => boolean;
 };
 
 function createRateLimiter(params: CreateLimiterParams): ReturnType<typeof rateLimit> {
@@ -68,7 +70,8 @@ function createRateLimiter(params: CreateLimiterParams): ReturnType<typeof rateL
     passOnStoreError: true,
     ...(store !== undefined ? { store } : {}),
     keyGenerator: params.keyGenerator,
-    skip: (req: Request) => shouldBypass(req),
+    skip: (req: Request) =>
+      shouldBypass(req) || (params.skipWhen !== undefined && params.skipWhen(req)),
     handler: (
       _req: Request,
       res: Response,
@@ -94,6 +97,7 @@ export const globalLimiter = createRateLimiter({
   redisPrefix: "global",
   blockCounterBucket: "global",
   keyGenerator: (req) => ipKeyFromRequest(req),
+  skipWhen: (req) => req.path.startsWith("/api/payments/webhooks"),
 });
 
 /** POST /api/auth/login — 5 / 15 min / IP */

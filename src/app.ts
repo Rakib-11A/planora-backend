@@ -16,6 +16,7 @@ import adminRouter from "./modules/admin/admin.route";
 import eventRouter from "./modules/event/event.route";
 import invitationRouter from "./modules/invitation/invitation.route";
 import paymentRouter from "./modules/payment/payment.route";
+import paymentWebhookRouter from "./modules/payment/payment.webhook.route";
 import participationRouter from "./modules/participation/participation.route";
 import reviewRouter from "./modules/review/review.route";
 import notificationRouter from "./modules/notification/notification.route";
@@ -113,6 +114,7 @@ export function createApp(): Application {
   app.use("/api", reviewRouter);
   app.use("/api", invitationRouter);
   app.use("/api", participationRouter);
+  app.use("/api/payments/webhooks", paymentWebhookRouter);
   app.use("/api", paymentRouter);
   app.use("/api", notificationRouter);
 
