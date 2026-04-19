@@ -35,8 +35,14 @@ export const eventReviewsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(10),
 });
 
+export const myReviewsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
 export type EventIdParamInput = z.infer<typeof eventIdParamSchema>;
 export type CreateReviewInput = z.infer<typeof createReviewSchema>;
 export type UpdateReviewInput = z.infer<typeof updateReviewSchema>;
 export type EventReviewsQueryInput = z.infer<typeof eventReviewsQuerySchema>;
+export type MyReviewsQueryInput = z.infer<typeof myReviewsQuerySchema>;
 

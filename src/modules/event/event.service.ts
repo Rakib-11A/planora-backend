@@ -12,6 +12,7 @@ import {
 } from "./event.repository";
 import type {
   EventQuery,
+  EventSafe,
   EventTypeLabel,
   EventWithType,
 } from "./event.types";
@@ -20,6 +21,7 @@ import {
   invalidateEventAndReviewCaches,
   invalidateEventListCaches,
 } from "../../shared/utils/cache";
+import { clearFeaturedIfMatchesEventId, getFeaturedEventId } from "../site/site-settings.repository";
 
 function toNumberFee(fee: Event["fee"]): number {
   return typeof fee === "number" ? fee : Number(fee.toString());
@@ -32,15 +34,15 @@ function getEventType(isPublic: boolean, isPaid: boolean): EventTypeLabel {
   return "PRIVATE_FREE";
 }
 
-function withEventType(event: Awaited<ReturnType<typeof findEventById>> extends infer T
-  ? T extends null
-    ? never
-    : T
-  : never): EventWithType {
+export function toEventWithType(event: EventSafe): EventWithType {
   return {
     ...event,
     eventType: getEventType(event.isPublic, event.isPaid),
   };
+}
+
+function withEventType(event: EventSafe): EventWithType {
+  return toEventWithType(event);
 }
 
 function validateFeeRule(isPaid: boolean, fee: number): void {
@@ -85,11 +87,19 @@ export async function createEventService(
   return withEventType(event);
 }
 
-export async function getAllEventsService(query: EventQuery): Promise<{
+export async function getAllEventsService(
+  query: EventQuery & { requesterId?: string },
+): Promise<{
   items: EventWithType[];
   pagination: { page: number; limit: number; total: number; totalPages: number };
 }> {
-  const { items, total } = await listEvents(query);
+  if (query.isPublic === false && !query.requesterId) {
+    throw new ApiError(401, "Sign in to browse private events");
+  }
+  const { items, total } = await listEvents({
+    ...query,
+    requesterId: query.requesterId,
+  });
   const totalPages = Math.max(1, Math.ceil(total / query.limit));
 
   return {
@@ -101,6 +111,19 @@ export async function getAllEventsService(query: EventQuery): Promise<{
       totalPages,
     },
   };
+}
+
+/** Public homepage featured event: must exist, be public, and not be soft-deleted. */
+export async function getFeaturedEventForHome(): Promise<EventWithType | null> {
+  const featuredId = await getFeaturedEventId();
+  if (!featuredId) {
+    return null;
+  }
+  const event = await findEventById(featuredId);
+  if (!event || !event.isPublic) {
+    return null;
+  }
+  return withEventType(event);
 }
 
 export async function getMyEventsService(
@@ -204,6 +227,7 @@ export async function deleteEventService(
   }
 
   await deleteEventById(id);
+  void clearFeaturedIfMatchesEventId(id);
   void invalidateEventAndReviewCaches(id);
   return { message: "Event deleted successfully" };
 }

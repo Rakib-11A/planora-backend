@@ -18,6 +18,7 @@ import {
   deleteEvent,
   getEventById,
   getEvents,
+  getFeaturedEvent,
   getMyEvents,
   updateEvent,
 } from "./event.controller";
@@ -126,8 +127,8 @@ const router = Router();
  *         description: Event deleted
  */
 
-// Public browsing
-router.get("/", publicReadLimiter, cacheEventsList, getEvents);
+// Public browsing (optional Bearer for private `isPublic=false` listings)
+router.get("/", publicReadLimiter, optionalAuthMiddleware, cacheEventsList, getEvents);
 
 // Authenticated: list events created by the current user (must be before `/:id`)
 router.get(
@@ -136,6 +137,8 @@ router.get(
   authenticatedGeneralLimiter,
   getMyEvents,
 );
+
+router.get("/featured", publicReadLimiter, getFeaturedEvent);
 
 router.get(
   "/:id",

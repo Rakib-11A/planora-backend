@@ -9,6 +9,7 @@ import {
   createEventService,
   deleteEventService,
   getAllEventsService,
+  getFeaturedEventForHome,
   getMyEventsService,
   getSingleEventService,
   updateEventService,
@@ -32,7 +33,8 @@ export const createEvent = asyncHandler(async (req: Request, res: Response) => {
 
 export const getEvents = asyncHandler(async (req: Request, res: Response) => {
   const query = getEventsQuerySchema.parse(req.query);
-  const data = await getAllEventsService(query);
+  const requesterId = (req as AuthenticatedRequest).user?.id;
+  const data = await getAllEventsService({ ...query, requesterId });
   res.status(200).json(new ApiResponse(200, data, "Events fetched successfully"));
 });
 
@@ -49,6 +51,11 @@ export const getMyEvents = asyncHandler(async (req: Request, res: Response) => {
   const query = getMyEventsQuerySchema.parse(req.query);
   const data = await getMyEventsService(userId, query.page, query.limit);
   res.status(200).json(new ApiResponse(200, data, "Your events fetched successfully"));
+});
+
+export const getFeaturedEvent = asyncHandler(async (_req: Request, res: Response) => {
+  const event = await getFeaturedEventForHome();
+  res.status(200).json(new ApiResponse(200, event, "Featured event fetched successfully"));
 });
 
 export const getEventById = asyncHandler(async (req: Request, res: Response) => {

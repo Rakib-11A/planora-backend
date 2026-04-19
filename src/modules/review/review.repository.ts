@@ -20,10 +20,12 @@ const reviewSelect = {
 
 export type EventReview = Prisma.ReviewGetPayload<{ select: typeof reviewSelect }>;
 
-export async function findEventByIdForReview(eventId: string): Promise<{ id: string } | null> {
+export async function findEventByIdForReview(
+  eventId: string,
+): Promise<{ id: string; dateTime: Date } | null> {
   return prisma.event.findFirst({
     where: { id: eventId, deletedAt: null },
-    select: { id: true },
+    select: { id: true, dateTime: true },
   });
 }
 
@@ -72,6 +74,41 @@ export async function deleteReviewById(id: string): Promise<Review> {
     where: { id },
     data: { deletedAt: new Date() },
   });
+}
+
+const myReviewSelect = {
+  ...reviewSelect,
+  event: {
+    select: {
+      id: true,
+      title: true,
+      dateTime: true,
+    },
+  },
+} as const;
+
+export type MyEventReview = Prisma.ReviewGetPayload<{ select: typeof myReviewSelect }>;
+
+export async function listMyReviews(
+  userId: string,
+  page: number,
+  limit: number,
+): Promise<{ items: MyEventReview[]; total: number }> {
+  const skip = (page - 1) * limit;
+  const where: Prisma.ReviewWhereInput = { userId, deletedAt: null };
+
+  const [items, total] = await prisma.$transaction([
+    prisma.review.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+      select: myReviewSelect,
+    }),
+    prisma.review.count({ where }),
+  ]);
+
+  return { items, total };
 }
 
 export async function listEventReviews(

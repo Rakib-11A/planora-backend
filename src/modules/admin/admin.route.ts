@@ -11,6 +11,8 @@ import {
   getAllUsers,
   getCacheStats,
   getRateLimitStats,
+  getSiteFeatured,
+  setSiteFeatured,
   unbanUser,
 } from "./admin.controller";
 
@@ -36,6 +38,9 @@ adminRoutes.delete("/reviews/:reviewId", deleteReview);
 adminRoutes.get("/cache/stats", getCacheStats);
 
 adminRoutes.get("/rate-limits", getRateLimitStats);
+
+adminRoutes.get("/site/featured", getSiteFeatured);
+adminRoutes.patch("/site/featured", setSiteFeatured);
 
 router.use("/admin", adminRoutes);
 

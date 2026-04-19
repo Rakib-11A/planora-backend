@@ -6,6 +6,7 @@ import { ApiResponse } from "../../utils/ApiResponse";
 import { asyncHandler } from "../../utils/asyncHandler";
 import {
   approveParticipantService,
+  banParticipantService,
   cancelParticipationService,
   getEventParticipantsService,
   getMyParticipationsService,
@@ -81,4 +82,11 @@ export const rejectParticipant = asyncHandler(
     res.status(200).json(new ApiResponse(200, result, result.message));
   },
 );
+
+export const banParticipant = asyncHandler(async (req: Request, res: Response) => {
+  const ownerId = requireUserId(req);
+  const { eventId, userId } = participantParamSchema.parse(req.params);
+  const result = await banParticipantService(eventId, ownerId, userId);
+  res.status(200).json(new ApiResponse(200, result, result.message));
+});
 

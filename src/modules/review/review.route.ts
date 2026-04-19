@@ -12,10 +12,18 @@ import {
   deleteReview,
   getEventReviews,
   getEventReviewSummary,
+  getMyReviews,
   updateReview,
 } from "./review.controller";
 
 const router = Router();
+
+router.get(
+  "/me/reviews",
+  authMiddleware,
+  authenticatedGeneralLimiter,
+  getMyReviews,
+);
 
 router.post(
   "/events/:eventId/reviews",

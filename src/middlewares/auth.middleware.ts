@@ -80,11 +80,11 @@ export const optionalAuthMiddleware = asyncHandler(
     try {
       payload = verifyAccessToken(token);
     } catch (err) {
-      if (err instanceof TokenExpiredError) {
-        throw new ApiError(401, "Access token expired. Please refresh.");
-      }
-      if (err instanceof JsonWebTokenError) {
-        throw new ApiError(401, "Invalid access token");
+      // Optional routes treat bad/expired tokens as anonymous so public reads keep working
+      // (e.g. listing public events while an old access token remains in localStorage).
+      if (err instanceof TokenExpiredError || err instanceof JsonWebTokenError) {
+        next();
+        return;
       }
       throw err;
     }

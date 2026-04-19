@@ -34,8 +34,10 @@ function queryHash(req: Request): string {
 export function buildCacheKey(segment: CacheSegment, req: Request): string {
   const qh = queryHash(req);
   switch (segment) {
-    case "events-list":
-      return `${CACHE_PREFIX}:events:list:qh:${qh}`;
+    case "events-list": {
+      const viewer = (req as AuthenticatedRequest).user?.id ?? "anon";
+      return `${CACHE_PREFIX}:events:list:viewer:${viewer}:qh:${qh}`;
+    }
     case "events-detail": {
       const id = req.params.id;
       const viewer = (req as AuthenticatedRequest).user?.id ?? "anon";

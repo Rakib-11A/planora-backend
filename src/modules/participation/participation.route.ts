@@ -8,6 +8,7 @@ import {
 } from "../../middlewares/rateLimiter";
 import {
   approveParticipant,
+  banParticipant,
   cancelParticipation,
   getEventParticipants,
   getMyParticipations,
@@ -147,6 +148,11 @@ router.patch(
   "/events/:eventId/participants/:userId/reject",
   authenticatedWriteLimiter,
   rejectParticipant,
+);
+router.patch(
+  "/events/:eventId/participants/:userId/ban",
+  authenticatedWriteLimiter,
+  banParticipant,
 );
 
 export default router;

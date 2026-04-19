@@ -38,5 +38,7 @@ export type EventQuery = {
   isPaid?: boolean;
   page: number;
   limit: number;
+  /** Required when `isPublic === false` for scoped private listings. */
+  requesterId?: string;
 };
 

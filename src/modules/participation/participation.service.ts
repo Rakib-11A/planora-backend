@@ -58,6 +58,9 @@ export async function joinEventService(
   const targetStatus = deriveInitialStatus(event.isPublic, event.isPaid);
 
   if (existing) {
+    if (existing.status === ParticipationStatus.BANNED) {
+      throw new ApiError(403, "You are banned from this event");
+    }
     if (existing.status === ParticipationStatus.CANCELLED) {
       const restored = await updateParticipationStatus(existing.id, targetStatus);
       void invalidateParticipationSideEffects(userId, eventId);
@@ -230,5 +233,59 @@ export async function rejectParticipantService(
   void invalidateParticipationSideEffects(participantUserId, eventId);
 
   return { message: "Participant rejected", status: updated.status };
+}
+
+export async function banParticipantService(
+  eventId: string,
+  ownerId: string,
+  participantUserId: string,
+): Promise<{ message: string; status: ParticipationStatus }> {
+  await assertOwner(eventId, ownerId);
+
+  if (participantUserId === ownerId) {
+    throw new ApiError(400, "You cannot ban yourself");
+  }
+
+  const participation = await findParticipationByUserAndEvent(
+    participantUserId,
+    eventId,
+  );
+  if (!participation) {
+    throw new ApiError(404, "Participation not found");
+  }
+  if (participation.status === ParticipationStatus.BANNED) {
+    throw new ApiError(409, "Participant is already banned");
+  }
+  if (
+    participation.status !== ParticipationStatus.PENDING &&
+    participation.status !== ParticipationStatus.APPROVED
+  ) {
+    throw new ApiError(400, "Only pending or approved participants can be banned");
+  }
+
+  const updated = await updateParticipationStatus(
+    participation.id,
+    ParticipationStatus.BANNED,
+  );
+
+  const row = await findParticipationWithUserByUserAndEvent(participantUserId, eventId);
+  if (row) {
+    await emitNotificationEvent({
+      userId: row.user.id,
+      type: NOTIFICATION_TYPES.PARTICIPATION_REJECTED,
+      title: "Removed from event",
+      message: `You were removed from "${row.event.title}" by the organizer.`,
+      metadata: { eventId, participationId: row.id },
+      email: {
+        to: row.user.email,
+        subject: "Planora: Participation update",
+        html: `<p>Hello ${row.user.name},</p><p>The organizer removed your access to <strong>${row.event.title}</strong>.</p>`,
+      },
+    });
+  }
+
+  void invalidateParticipationSideEffects(participantUserId, eventId);
+
+  return { message: "Participant banned", status: updated.status };
 }
 

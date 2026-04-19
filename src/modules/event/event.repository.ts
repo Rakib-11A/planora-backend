@@ -90,15 +90,47 @@ export async function findEventById(id: string): Promise<EventSafe | null> {
 export async function listEvents(
   query: EventQuery,
 ): Promise<{ items: EventSafe[]; total: number }> {
-  const where: EventWhere = {};
-  where.deletedAt = null;
+  const andClauses: Prisma.EventWhereInput[] = [{ deletedAt: null }];
 
-  // Public browsing default.
-  where.isPublic = query.isPublic ?? true;
-  if (query.isPaid !== undefined) where.isPaid = query.isPaid;
-  if (query.search !== undefined && query.search !== "") {
-    where.title = { contains: query.search, mode: "insensitive" };
+  if (query.isPaid !== undefined) {
+    andClauses.push({ isPaid: query.isPaid });
   }
+
+  if (query.isPublic === false) {
+    if (query.requesterId === undefined || query.requesterId === "") {
+      throw new Error("listEvents: requesterId is required when isPublic is false");
+    }
+    andClauses.push({
+      isPublic: false,
+      OR: [
+        { createdById: query.requesterId },
+        { invitations: { some: { inviteeId: query.requesterId } } },
+        { participations: { some: { userId: query.requesterId } } },
+      ],
+    });
+  } else {
+    andClauses.push({ isPublic: query.isPublic ?? true });
+  }
+
+  if (query.search !== undefined && query.search !== "") {
+    andClauses.push({
+      OR: [
+        { title: { contains: query.search, mode: "insensitive" } },
+        {
+          createdBy: {
+            is: {
+              OR: [
+                { name: { contains: query.search, mode: "insensitive" } },
+                { email: { contains: query.search, mode: "insensitive" } },
+              ],
+            },
+          },
+        },
+      ],
+    });
+  }
+
+  const where: EventWhere = { AND: andClauses };
 
   const skip = (query.page - 1) * query.limit;
 

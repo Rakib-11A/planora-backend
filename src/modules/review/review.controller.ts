@@ -9,12 +9,14 @@ import {
   deleteReviewService,
   getEventReviewsService,
   getEventReviewSummaryService,
+  getMyReviewsService,
   updateReviewService,
 } from "./review.service";
 import {
   createReviewSchema,
   eventReviewsQuerySchema,
   eventIdParamSchema,
+  myReviewsQuerySchema,
   updateReviewSchema,
 } from "./review.validation";
 
@@ -65,4 +67,11 @@ export const getEventReviewSummary = asyncHandler(
       .json(new ApiResponse(200, result, "Event rating summary fetched successfully"));
   },
 );
+
+export const getMyReviews = asyncHandler(async (req: Request, res: Response) => {
+  const userId = requireUserId(req);
+  const query = myReviewsQuerySchema.parse(req.query);
+  const result = await getMyReviewsService(userId, query);
+  res.status(200).json(new ApiResponse(200, result, "Your reviews fetched successfully"));
+});
 

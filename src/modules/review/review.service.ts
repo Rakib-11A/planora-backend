@@ -8,11 +8,21 @@ import {
   findReviewByUserAndEvent,
   getEventRatingSummary,
   listEventReviews,
+  listMyReviews,
   updateReviewById,
 } from "./review.repository";
-import type { CreateReviewInput, UpdateReviewInput } from "./review.validation";
+import type { CreateReviewInput, MyReviewsQueryInput, UpdateReviewInput } from "./review.validation";
 import { paginate } from "../../shared/utils/pagination";
 import { invalidateEventAndReviewCaches } from "../../shared/utils/cache";
+
+function assertWithinReviewEditWindow(event: { dateTime: Date }): void {
+  const raw = Number(process.env.REVIEW_EDIT_WINDOW_HOURS ?? "336");
+  const hours = Number.isFinite(raw) && raw > 0 ? raw : 336;
+  const deadlineMs = event.dateTime.getTime() + hours * 60 * 60 * 1000;
+  if (Date.now() > deadlineMs) {
+    throw new ApiError(400, "The review edit period for this event has ended");
+  }
+}
 
 export async function createReviewService(
   eventId: string,
@@ -59,6 +69,8 @@ export async function updateReviewService(
     throw new ApiError(404, "Review not found");
   }
 
+  assertWithinReviewEditWindow(event);
+
   await updateReviewById(review.id, {
     rating: input.rating,
     comment: input.comment,
@@ -82,6 +94,8 @@ export async function deleteReviewService(
   if (!review) {
     throw new ApiError(404, "Review not found");
   }
+
+  assertWithinReviewEditWindow(event);
 
   await deleteReviewById(review.id);
   void invalidateEventAndReviewCaches(eventId);
@@ -107,5 +121,10 @@ export async function getEventReviewSummaryService(eventId: string) {
     throw new ApiError(404, "Event not found");
   }
   return getEventRatingSummary(eventId);
+}
+
+export async function getMyReviewsService(userId: string, query: MyReviewsQueryInput) {
+  const { items, total } = await listMyReviews(userId, query.page, query.limit);
+  return paginate({ page: query.page, limit: query.limit }, total, items);
 }
 

@@ -1,0 +1,9 @@
+// Singleton row (id = "default") for platform-wide marketing settings.
+
+model SiteSettings {
+  id              String   @id @default("default")
+  featuredEventId String?  @unique
+  updatedAt       DateTime @updatedAt
+
+  featuredEvent Event? @relation("SiteFeaturedEvent", fields: [featuredEventId], references: [id], onDelete: SetNull)
+}

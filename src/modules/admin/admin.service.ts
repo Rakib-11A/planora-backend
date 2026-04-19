@@ -24,7 +24,14 @@ import type {
   AdminReviewsQueryInput,
   AdminUsersQueryInput,
 } from "./admin.validation";
-import { invalidateEventAndReviewCaches } from "../../shared/utils/cache";
+import {
+  invalidateEventAndReviewCaches,
+  invalidateEventListCaches,
+} from "../../shared/utils/cache";
+import { clearFeaturedIfMatchesEventId, getFeaturedEventId, setFeaturedEventId } from "../site/site-settings.repository";
+import { findEventById } from "../event/event.repository";
+import { toEventWithType } from "../event/event.service";
+import type { EventWithType } from "../event/event.types";
 
 function paginated<T>(items: T[], total: number, page: number, limit: number) {
   return {
@@ -79,6 +86,57 @@ export async function getAllEventsService(query: AdminEventsQueryInput) {
   return paginated(items, total, query.page, query.limit);
 }
 
+export async function getSiteFeaturedService(): Promise<{
+  featuredEventId: string | null;
+  event: EventWithType | null;
+  warning: string | null;
+}> {
+  const featuredEventId = await getFeaturedEventId();
+  if (!featuredEventId) {
+    return { featuredEventId: null, event: null, warning: null };
+  }
+  const event = await findEventById(featuredEventId);
+  if (!event) {
+    return {
+      featuredEventId,
+      event: null,
+      warning: "The featured event no longer exists. Clear the selection or pick another event.",
+    };
+  }
+  const typed = toEventWithType(event);
+  if (!event.isPublic) {
+    return {
+      featuredEventId,
+      event: typed,
+      warning: "This event is private. The public homepage will not show it until the event is public.",
+    };
+  }
+  return { featuredEventId, event: typed, warning: null };
+}
+
+export async function setSiteFeaturedService(eventId: string | null): Promise<{
+  featuredEventId: string | null;
+  event: EventWithType | null;
+}> {
+  if (eventId === null) {
+    await setFeaturedEventId(null);
+    void invalidateEventListCaches();
+    return { featuredEventId: null, event: null };
+  }
+
+  const event = await findEventById(eventId);
+  if (!event) {
+    throw new ApiError(404, "Event not found");
+  }
+  if (!event.isPublic) {
+    throw new ApiError(400, "Only public events can be featured on the homepage");
+  }
+
+  await setFeaturedEventId(eventId);
+  void invalidateEventListCaches();
+  return { featuredEventId: eventId, event: toEventWithType(event) };
+}
+
 export async function deleteEventService(eventId: string) {
   const event = await findEventByIdForAdmin(eventId);
   if (!event) {
@@ -89,6 +147,7 @@ export async function deleteEventService(eventId: string) {
   }
 
   await softDeleteEventById(eventId);
+  void clearFeaturedIfMatchesEventId(eventId);
   void invalidateEventAndReviewCaches(eventId);
   return { message: "Event deleted successfully" };
 }

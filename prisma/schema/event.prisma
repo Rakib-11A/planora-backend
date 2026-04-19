@@ -22,6 +22,8 @@ model Event {
   invitations    Invitation[]
   reviews        Review[]
   payments       Payment[]
+  /// At most one site row may point here as the homepage featured event.
+  siteFeaturedAs SiteSettings? @relation("SiteFeaturedEvent")
 
   @@index([dateTime]) // Used by: GET /api/events (chronological sorting)
   @@index([isPublic, isPaid, dateTime]) // Used by: GET /api/events (visibility/payment filtered listings)
