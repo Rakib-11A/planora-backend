@@ -7,6 +7,7 @@ import {
   deleteEventById,
   findEventById,
   listEvents,
+  listEventsByCreator,
   updateEventById,
 } from "./event.repository";
 import type {
@@ -96,6 +97,28 @@ export async function getAllEventsService(query: EventQuery): Promise<{
     pagination: {
       page: query.page,
       limit: query.limit,
+      total,
+      totalPages,
+    },
+  };
+}
+
+export async function getMyEventsService(
+  userId: string,
+  page: number,
+  limit: number,
+): Promise<{
+  items: EventWithType[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}> {
+  const { items, total } = await listEventsByCreator(userId, page, limit);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  return {
+    items: items.map((event) => withEventType(event)),
+    pagination: {
+      page,
+      limit,
       total,
       totalPages,
     },

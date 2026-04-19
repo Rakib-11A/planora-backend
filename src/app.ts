@@ -107,10 +107,13 @@ export function createApp(): Application {
   app.use("/api/auth", authRouter);
   app.use("/api", adminRouter);
   app.use("/api/events", eventRouter);
+  // Public read routes under `/api/events/...` must register **before** routers that do
+  // `router.use(authMiddleware)` for the whole `/api` mount (invitation, participation, payment),
+  // otherwise unauthenticated GETs like `/api/events/:id/reviews` hit auth first and return 401.
+  app.use("/api", reviewRouter);
   app.use("/api", invitationRouter);
   app.use("/api", participationRouter);
   app.use("/api", paymentRouter);
-  app.use("/api", reviewRouter);
   app.use("/api", notificationRouter);
 
   app.use(notFoundHandler);

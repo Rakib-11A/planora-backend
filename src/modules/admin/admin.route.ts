@@ -14,23 +14,30 @@ import {
   unbanUser,
 } from "./admin.controller";
 
+/**
+ * Admin API lives under `/api/admin/*`.
+ * Auth must apply only to this subtree — not to the whole `/api` mount — otherwise
+ * public routes like `GET /api/events` would hit `authMiddleware` first and return 401.
+ */
 const router = Router();
+const adminRoutes = Router();
+adminRoutes.use(authMiddleware, requireRole("ADMIN"));
 
-router.use(authMiddleware, requireRole("ADMIN"));
+adminRoutes.get("/users", getAllUsers);
+adminRoutes.patch("/users/:userId/ban", banUser);
+adminRoutes.patch("/users/:userId/unban", unbanUser);
 
-router.get("/admin/users", getAllUsers);
-router.patch("/admin/users/:userId/ban", banUser);
-router.patch("/admin/users/:userId/unban", unbanUser);
+adminRoutes.get("/events", getAllEvents);
+adminRoutes.delete("/events/:eventId", deleteEvent);
 
-router.get("/admin/events", getAllEvents);
-router.delete("/admin/events/:eventId", deleteEvent);
+adminRoutes.get("/reviews", getAllReviews);
+adminRoutes.delete("/reviews/:reviewId", deleteReview);
 
-router.get("/admin/reviews", getAllReviews);
-router.delete("/admin/reviews/:reviewId", deleteReview);
+adminRoutes.get("/cache/stats", getCacheStats);
 
-router.get("/admin/cache/stats", getCacheStats);
+adminRoutes.get("/rate-limits", getRateLimitStats);
 
-router.get("/admin/rate-limits", getRateLimitStats);
+router.use("/admin", adminRoutes);
 
 export default router;
 

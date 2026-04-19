@@ -136,6 +136,53 @@ export async function listEvents(
   return { items, total };
 }
 
+/** Events owned by the user (public and private), excluding soft-deleted. */
+export async function listEventsByCreator(
+  createdById: string,
+  page: number,
+  limit: number,
+): Promise<{ items: EventSafe[]; total: number }> {
+  const where: EventWhere = {
+    deletedAt: null,
+    createdById,
+  };
+
+  const skip = (page - 1) * limit;
+
+  const [events, total] = await prisma.$transaction([
+    prisma.event.findMany({
+      where,
+      orderBy: { dateTime: "asc" },
+      skip,
+      take: limit,
+      select: eventSelect,
+    }),
+    prisma.event.count({ where }),
+  ]);
+
+  const eventIds = events.map((event) => event.id);
+  const grouped =
+    eventIds.length === 0
+      ? []
+      : await prisma.review.groupBy({
+          by: ["eventId"],
+          where: { eventId: { in: eventIds }, deletedAt: null },
+          _avg: { rating: true },
+          _count: { _all: true },
+        });
+
+  const items = withRatings(
+    events,
+    grouped.map((row) => ({
+      eventId: row.eventId,
+      avgRating: Number(row._avg.rating ?? 0),
+      totalReviews: row._count._all,
+    })),
+  );
+
+  return { items, total };
+}
+
 export async function updateEventById(
   id: string,
   data: Prisma.EventUncheckedUpdateInput,
