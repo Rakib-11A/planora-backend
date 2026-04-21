@@ -17,8 +17,9 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-planora}?schema=public
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+    # Expose only on loopback; Nginx reverse-proxies from 80/443.
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5000/health',(res)=>process.exit(res.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
@@ -33,8 +34,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-planora}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -47,8 +46,6 @@ services:
 
   redis:
     image: redis:7
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
