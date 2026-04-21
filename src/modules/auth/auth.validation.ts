@@ -82,7 +82,30 @@ export const resetPasswordSchema = z
   });
 export type ResetPasswordSchema = z.infer<typeof resetPasswordSchema>;
 
-// 7) Change Password
+// 7) Update Profile (self) — name and/or avatar URL.
+export const updateProfileSchema = z
+  .object({
+    name: z
+      .string({ invalid_type_error: "Name must be a string" })
+      .trim()
+      .min(2, { message: "Name must be at least 2 characters" })
+      .max(50, { message: "Name must be at most 50 characters" })
+      .optional(),
+    avatar: z
+      .string({ invalid_type_error: "Avatar must be a string URL" })
+      .trim()
+      .url({ message: "Avatar must be a valid URL" })
+      .max(2048, { message: "Avatar URL is too long" })
+      .nullable()
+      .optional(),
+  })
+  .strict()
+  .refine((v) => v.name !== undefined || v.avatar !== undefined, {
+    message: "At least one of name or avatar must be provided",
+  });
+export type UpdateProfileSchema = z.infer<typeof updateProfileSchema>;
+
+// 8) Change Password
 export const changePasswordSchema = z
   .object({
     currentPassword: z

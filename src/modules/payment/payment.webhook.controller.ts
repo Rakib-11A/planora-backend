@@ -1,6 +1,7 @@
 import { PaymentStatus } from "@prisma/client";
 import type { Request, Response } from "express";
 
+import { config } from "../../config/env";
 import { validateSslCommerzValId } from "../../lib/payment/sslcommerz.provider";
 import { shurjoPayPaymentProvider } from "../../lib/payment/shurjopay.provider";
 import { logger } from "../../lib/logger/logger";
@@ -83,6 +84,60 @@ export const sslCommerzIpnHandler = asyncHandler(async (req: Request, res: Respo
     });
     res.status(200).type("text/plain").send("SUCCESS");
   }
+});
+
+/**
+ * SSLCommerz redirects the customer to success/fail/cancel URL via POST. We accept
+ * that POST here, validate `val_id` server-side (idempotent with the IPN), then
+ * 302-redirect the browser to the frontend `/payment-return` page with safe query params.
+ */
+export const sslCommerzReturnHandler = asyncHandler(async (req: Request, res: Response) => {
+  const status = String(req.params.status ?? "").toLowerCase();
+  const allowed = status === "success" || status === "fail" || status === "cancel";
+
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const query = req.query as Record<string, unknown>;
+  const pick = (k: string) =>
+    String(body[k] ?? query[k] ?? "").trim();
+
+  const valId = pick("val_id");
+  const tranId = pick("tran_id");
+  const eventIdEcho = pick("value_b") || pick("eventId");
+  const frontendBaseRaw = pick("frontendBase") || config.FRONTEND_URL;
+  const frontendBase = frontendBaseRaw.replace(/\/$/, "");
+
+  if (status === "success" && valId !== "") {
+    try {
+      const validated = await validateSslCommerzValId(valId);
+      if (validated.ok && validated.tranId !== undefined && validated.tranId !== "") {
+        const payment = await findPaymentById(validated.tranId);
+        if (
+          payment &&
+          normalizeProvider(payment.provider) === "sslcommerz" &&
+          payment.status !== PaymentStatus.SUCCESS
+        ) {
+          await finalizePaymentAsSuccessfulFromGateway(payment, validated.valId ?? valId);
+        }
+      } else {
+        logger.warn("SSLCommerz return: val_id validation failed", { valId, tranId });
+      }
+    } catch (err) {
+      logger.error("SSLCommerz return finalize error", {
+        valId,
+        tranId,
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  const qs = new URLSearchParams({
+    provider: "sslcommerz",
+    status: allowed ? status : "fail",
+  });
+  if (tranId !== "") qs.set("paymentId", tranId);
+  if (eventIdEcho !== "") qs.set("eventId", eventIdEcho);
+
+  res.redirect(302, `${frontendBase}/payment-return?${qs.toString()}`);
 });
 
 /**

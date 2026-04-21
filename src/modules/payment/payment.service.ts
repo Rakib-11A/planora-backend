@@ -148,6 +148,9 @@ export async function initiatePaymentService(
       participationId: participation.id,
       apiBaseUrl: apiBase,
       frontendBaseUrl: frontendBase,
+      userName: participation.user.name,
+      userEmail: participation.user.email,
+      eventTitle: participation.event.title,
     },
   });
 

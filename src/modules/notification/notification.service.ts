@@ -10,6 +10,10 @@ import {
   markAllNotificationsReadByUserId,
   markNotificationReadById,
 } from "./notification.repository";
+import {
+  getNotificationPreferences,
+  isEmailAllowed,
+} from "./notification.preferences";
 import type { EmitNotificationInput, NotificationQuery } from "./notification.types";
 import { invalidateUserNotificationCaches } from "../../shared/utils/cache";
 
@@ -51,14 +55,17 @@ export async function emitNotification(
   }
 
   if (input.email) {
-    try {
-      await sendEmail({
-        to: input.email.to,
-        subject: input.email.subject,
-        html: input.email.html || basicEmailTemplate(input.title, input.message),
-      });
-    } catch {
-      // Silent by design: notification flow must not fail on email issues.
+    const prefs = await getNotificationPreferences(input.userId);
+    if (isEmailAllowed(prefs, input.type)) {
+      try {
+        await sendEmail({
+          to: input.email.to,
+          subject: input.email.subject,
+          html: input.email.html || basicEmailTemplate(input.title, input.message),
+        });
+      } catch {
+        // Silent by design: notification flow must not fail on email issues.
+      }
     }
   }
 }

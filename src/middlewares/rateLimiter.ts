@@ -136,7 +136,15 @@ function createAuthSensitiveLimiter(
 
 export const verifyEmailLimiter = createAuthSensitiveLimiter("verify-email");
 export const resendOtpLimiter = createAuthSensitiveLimiter("resend-otp");
-export const refreshTokenLimiter = createAuthSensitiveLimiter("refresh-token");
+/** POST /api/auth/refresh-token — generous budget for multi-tab + access-token expiry bursts */
+export const refreshTokenLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  limit: 120,
+  message: "Too many token refresh attempts. Please try again later.",
+  redisPrefix: "auth:refresh-token",
+  blockCounterBucket: "auth:refresh-token",
+  keyGenerator: (req) => ipKeyFromRequest(req),
+});
 export const forgotPasswordLimiter = createAuthSensitiveLimiter("forgot-password");
 export const resetPasswordLimiter = createAuthSensitiveLimiter("reset-password");
 

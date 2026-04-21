@@ -118,6 +118,18 @@ export const config = {
 
   /** Optional; when set, matching `x-bypass-token` header skips rate limits (testing only). */
   RATE_LIMIT_BYPASS_TOKEN: optionalString("RATE_LIMIT_BYPASS_TOKEN", ""),
+
+  /**
+   * Refresh-cookie SameSite policy: `lax` | `strict` | `none`.
+   * Default: `lax` in development (cross-port localhost) and `strict` in production (same-site subdomains).
+   */
+  COOKIE_SAME_SITE: ((): "lax" | "strict" | "none" => {
+    const raw = optionalString("COOKIE_SAME_SITE", "").toLowerCase();
+    if (raw === "lax" || raw === "strict" || raw === "none") {
+      return raw;
+    }
+    return NODE_ENV === "production" ? "strict" : "lax";
+  })(),
 } as const;
 
 export function isSmtpSecure(): boolean {

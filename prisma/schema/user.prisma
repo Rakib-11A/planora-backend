@@ -20,6 +20,10 @@ model User {
   /// EMAIL = password login; GOOGLE = OAuth-only (password may be unused placeholder).
   authProvider AuthProvider @default(EMAIL)
 
+  /// Per-user notification preferences. Shape: `{ emailEnabled: boolean, mutedTypes: string[] }`.
+  /// `null` = use system defaults (everything enabled).
+  notificationPreferences Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

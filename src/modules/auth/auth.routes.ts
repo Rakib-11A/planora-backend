@@ -22,6 +22,7 @@ import {
   register,
   resendVerificationOtp,
   resetPassword,
+  updateMe,
   verifyEmail,
 } from "./auth.controller";
 
@@ -180,6 +181,13 @@ router.post("/reset-password", resetPasswordLimiter, resetPassword);
 
 // Protected — Bearer access token required
 router.get("/me", authMiddleware, authenticatedGeneralLimiter, getMe);
+router.patch(
+  "/me",
+  authMiddleware,
+  authenticatedGeneralLimiter,
+  authenticatedWriteLimiter,
+  updateMe,
+);
 router.post(
   "/logout",
   authMiddleware,

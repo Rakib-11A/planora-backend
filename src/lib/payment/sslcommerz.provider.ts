@@ -37,12 +37,50 @@ export class SslCommerzPaymentProvider implements PaymentProvider {
     const apiBase = (data.metadata?.apiBaseUrl ?? process.env.BETTER_AUTH_URL ?? "").replace(/\/$/, "");
 
     if (!storeId || !storePass) {
-      const paymentUrl = `${baseUrl}/payments?provider=sslcommerz&paymentId=${encodeURIComponent(data.paymentId)}`;
+      if (baseUrl === "") {
+        throw new Error(
+          "[sslcommerz dev] FRONTEND_URL or frontendBaseUrl metadata is required to build checkout URL",
+        );
+      }
+      const eventId = (data.metadata?.eventId ?? "").trim();
+      const qs = new URLSearchParams({
+        provider: "sslcommerz",
+        paymentId: data.paymentId,
+      });
+      if (eventId !== "") {
+        qs.set("eventId", eventId);
+      }
+      const paymentUrl = `${baseUrl}/payment-return?${qs.toString()}`;
       return {
         paymentUrl,
         transactionId: `sslc_dev_${data.paymentId}`,
       };
     }
+
+    const eventIdForReturn = (data.metadata?.eventId ?? "").trim();
+    // Route success/fail/cancel through the backend so we can receive SSLCommerz's POST,
+    // validate val_id server-side, then 302 the browser to the frontend confirmation page.
+    const returnUrl = (status: "success" | "fail" | "cancel") => {
+      if (apiBase) {
+        const qs = new URLSearchParams({ frontendBase: baseUrl });
+        if (eventIdForReturn !== "") {
+          qs.set("eventId", eventIdForReturn);
+        }
+        return `${apiBase}/api/payments/webhooks/sslcommerz/return/${status}?${qs.toString()}`;
+      }
+      // Fallback to frontend page directly (best-effort dev only).
+      const qs = new URLSearchParams({
+        provider: "sslcommerz",
+        paymentId: data.paymentId,
+        status,
+      });
+      if (eventIdForReturn !== "") {
+        qs.set("eventId", eventIdForReturn);
+      }
+      return `${baseUrl}/payment-return?${qs.toString()}`;
+    };
+
+    const productName = (data.metadata?.eventTitle ?? "").trim() || "Event registration";
 
     const form = new URLSearchParams();
     form.set("store_id", storeId);
@@ -50,17 +88,31 @@ export class SslCommerzPaymentProvider implements PaymentProvider {
     form.set("total_amount", data.amount.toFixed(2));
     form.set("currency", data.currency);
     form.set("tran_id", data.paymentId);
-    form.set("product_category", "Event");
-    form.set("success_url", `${baseUrl}/payments?provider=sslcommerz&status=success&paymentId=${encodeURIComponent(data.paymentId)}`);
-    form.set("fail_url", `${baseUrl}/payments?provider=sslcommerz&status=fail&paymentId=${encodeURIComponent(data.paymentId)}`);
-    form.set("cancel_url", `${baseUrl}/payments?provider=sslcommerz&status=cancel&paymentId=${encodeURIComponent(data.paymentId)}`);
-    form.set("cus_name", data.metadata?.userName ?? "Planora user");
-    form.set("cus_email", data.metadata?.userEmail ?? "noreply@planora.local");
-    form.set("value_a", data.metadata?.userId ?? "");
-    form.set("value_b", data.metadata?.eventId ?? "");
+    form.set("success_url", returnUrl("success"));
+    form.set("fail_url", returnUrl("fail"));
+    form.set("cancel_url", returnUrl("cancel"));
     if (apiBase) {
       form.set("ipn_url", `${apiBase}/api/payments/webhooks/sslcommerz`);
     }
+    form.set("emi_option", "0");
+    // Customer (required by SSLCommerz) — fall back to safe placeholders if user has no phone/address.
+    form.set("cus_name", (data.metadata?.userName ?? "").trim() || "Planora user");
+    form.set("cus_email", (data.metadata?.userEmail ?? "").trim() || "noreply@planora.local");
+    form.set("cus_add1", "Dhaka");
+    form.set("cus_city", "Dhaka");
+    form.set("cus_postcode", "1000");
+    form.set("cus_country", "Bangladesh");
+    form.set("cus_phone", "01700000000");
+    // Shipping (NO = digital / non-shipping).
+    form.set("shipping_method", "NO");
+    form.set("num_of_item", "1");
+    form.set("product_name", productName.slice(0, 255));
+    form.set("product_category", "Event");
+    form.set("product_profile", "non-physical-goods");
+    // Pass-through identifiers we want echoed back on IPN/return.
+    form.set("value_a", data.metadata?.userId ?? "");
+    form.set("value_b", data.metadata?.eventId ?? "");
+    form.set("value_c", data.metadata?.participationId ?? "");
 
     const res = await fetch(`${this.gatewayHost()}/gwprocess/v4/api.php`, {
       method: "POST",
@@ -92,17 +144,50 @@ export class SslCommerzPaymentProvider implements PaymentProvider {
       ""
     ).trim();
 
-    if (!storeId || !storePass || txn === "") {
+    if (!storeId || !storePass) {
       return { status: "FAILED", transactionId: txn };
     }
 
-    const url = `${this.gatewayHost()}/validator/api/merTransTest.php?sessionkey=${encodeURIComponent(txn)}&store_id=${encodeURIComponent(storeId)}&store_passwd=${encodeURIComponent(storePass)}&format=json`;
+    // Query SSLCommerz by our merchant tran_id (= payment row id). The `sessionkey`
+    // stored on transactionId is a one-time session identifier and is not accepted
+    // by the transaction-query API; tran_id is the canonical lookup key.
+    const tranId = data.paymentId;
+    const url =
+      `${this.gatewayHost()}/validator/api/merchantTransIDvalidationAPI.php` +
+      `?tran_id=${encodeURIComponent(tranId)}` +
+      `&store_id=${encodeURIComponent(storeId)}` +
+      `&store_passwd=${encodeURIComponent(storePass)}` +
+      `&v=1&format=json`;
+
     const res = await fetch(url);
-    const json = (await res.json()) as SessionJson;
-    const status = typeof json.status === "string" ? json.status : "";
+    const raw = await res.text();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return { status: "FAILED", transactionId: txn };
+    }
+
+    const container =
+      parsed !== null && typeof parsed === "object"
+        ? (parsed as Record<string, unknown>)
+        : {};
+    const elements = Array.isArray(container.element)
+      ? (container.element as SessionJson[])
+      : Array.isArray(parsed)
+        ? (parsed as SessionJson[])
+        : [];
+    const row = elements[0] ?? (parsed as SessionJson | undefined);
+    if (row === undefined || row === null || typeof row !== "object") {
+      return { status: "FAILED", transactionId: txn };
+    }
+    const status = typeof (row as SessionJson).status === "string" ? ((row as SessionJson).status as string) : "";
     const ok = status === "VALID" || status === "VALIDATED" || status === "SUCCESS";
-    const tranId = typeof json.tran_id === "string" ? json.tran_id : txn;
-    return { status: ok ? "SUCCESS" : "FAILED", transactionId: tranId };
+    const resolvedTran =
+      typeof (row as SessionJson).tran_id === "string"
+        ? ((row as SessionJson).tran_id as string)
+        : tranId;
+    return { status: ok ? "SUCCESS" : "FAILED", transactionId: resolvedTran };
   }
 }
 

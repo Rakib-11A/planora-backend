@@ -6,6 +6,12 @@ import { ApiError } from "../../utils/ApiError";
 import { ApiResponse } from "../../utils/ApiResponse";
 import { asyncHandler } from "../../utils/asyncHandler";
 import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  getNotificationPreferences,
+  NOTIFICATION_TYPE_LIST,
+  setNotificationPreferences,
+} from "./notification.preferences";
+import {
   getMyNotificationsService,
   markAllNotificationsReadService,
   markNotificationReadService,
@@ -19,6 +25,17 @@ const notificationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10),
 });
+
+const notificationTypeEnum = z.enum(
+  NOTIFICATION_TYPE_LIST as [string, ...string[]],
+);
+
+const updatePreferencesSchema = z
+  .object({
+    emailEnabled: z.boolean().optional(),
+    mutedTypes: z.array(notificationTypeEnum).max(50).optional(),
+  })
+  .strict();
 
 function requireUserId(req: Request): string {
   const userId = (req as AuthenticatedRequest).user?.id;
@@ -53,6 +70,35 @@ export const markAllNotificationsRead = asyncHandler(
     const userId = requireUserId(req);
     const result = await markAllNotificationsReadService(userId);
     res.status(200).json(new ApiResponse(200, result, result.message));
+  },
+);
+
+export const getMyNotificationPreferences = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = requireUserId(req);
+    const prefs = await getNotificationPreferences(userId);
+    res.status(200).json(
+      new ApiResponse(
+        200,
+        { preferences: prefs, availableTypes: NOTIFICATION_TYPE_LIST, defaults: DEFAULT_NOTIFICATION_PREFERENCES },
+        "Notification preferences fetched",
+      ),
+    );
+  },
+);
+
+export const updateMyNotificationPreferences = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = requireUserId(req);
+    const patch = updatePreferencesSchema.parse(req.body);
+    const current = await getNotificationPreferences(userId);
+    const next = await setNotificationPreferences(userId, {
+      emailEnabled: patch.emailEnabled ?? current.emailEnabled,
+      mutedTypes: (patch.mutedTypes ?? current.mutedTypes) as typeof current.mutedTypes,
+    });
+    res
+      .status(200)
+      .json(new ApiResponse(200, { preferences: next }, "Notification preferences updated"));
   },
 );
 

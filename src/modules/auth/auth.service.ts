@@ -1,4 +1,4 @@
-import { OtpType } from "@prisma/client";
+import { OtpType, type Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 import { getRedisClient } from "../../config/redis";
@@ -365,10 +365,28 @@ export async function loginUser(
   };
 }
 
+/** Coalesces concurrent refresh calls using the same refresh JWT (multi-tab / burst 401s). */
+const refreshTokenRotationLocks = new Map<string, Promise<RefreshResult>>();
+
 /**
  * Rotate refresh token: verify, delete old, issue new access + refresh tokens.
+ * Concurrent requests with the same refresh cookie share one rotation (avoids false 401 races).
  */
 export async function refreshAccessToken(refreshToken: string): Promise<RefreshResult> {
+  const lockKey = hashToken(refreshToken);
+  const inflight = refreshTokenRotationLocks.get(lockKey);
+  if (inflight !== undefined) {
+    return inflight;
+  }
+
+  const task = performRefreshTokenRotation(refreshToken).finally(() => {
+    refreshTokenRotationLocks.delete(lockKey);
+  });
+  refreshTokenRotationLocks.set(lockKey, task);
+  return task;
+}
+
+async function performRefreshTokenRotation(refreshToken: string): Promise<RefreshResult> {
   let payload: { sub: string; email: string; role?: string };
   try {
     payload = verifyRefreshToken(refreshToken);
@@ -384,6 +402,12 @@ export async function refreshAccessToken(refreshToken: string): Promise<RefreshR
   if (record.expiresAt <= new Date()) {
     throw new ApiError(401, "Refresh token expired");
   }
+  if (!record.user.isActive) {
+    throw new ApiError(403, "Account has been deactivated");
+  }
+  if (record.user.isBanned) {
+    throw new ApiError(403, "Account is banned");
+  }
 
   await deleteRefreshToken(hashed);
 
@@ -397,6 +421,8 @@ export async function refreshAccessToken(refreshToken: string): Promise<RefreshR
     token: newHashed,
     expiresAt: getRefreshTokenExpiry(),
   });
+
+  logger.info("Refresh token rotated", { userId: payload.sub });
 
   return { accessToken, refreshToken: newRefreshToken };
 }
@@ -507,4 +533,44 @@ export async function getMe(userId: string): Promise<UserPublic> {
     throw new ApiError(404, "User not found");
   }
   return user;
+}
+
+export type UpdateProfileInput = {
+  name?: string;
+  avatar?: string | null;
+};
+
+/**
+ * Patch the signed-in user's mutable profile fields. Email and role are not
+ * editable here (email change requires verification, role is admin-only).
+ */
+export async function updateProfile(
+  userId: string,
+  data: UpdateProfileInput,
+): Promise<UserPublic> {
+  const user = await findUserById(userId);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  const patch: Prisma.UserUpdateInput = {};
+  if (data.name !== undefined) {
+    patch.name = data.name;
+  }
+  if (data.avatar !== undefined) {
+    patch.avatar = data.avatar;
+  }
+  const updated = await updateUserById(userId, patch);
+  return {
+    id: updated.id,
+    name: updated.name,
+    email: updated.email,
+    role: updated.role,
+    avatar: updated.avatar,
+    isActive: updated.isActive,
+    isBanned: updated.isBanned,
+    bannedAt: updated.bannedAt,
+    isEmailVerified: updated.isEmailVerified,
+    authProvider: updated.authProvider,
+    createdAt: updated.createdAt,
+  };
 }

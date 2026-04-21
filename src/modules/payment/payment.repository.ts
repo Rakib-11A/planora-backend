@@ -148,7 +148,8 @@ export async function findEventParticipationByUser(
 ): Promise<{
   id: string;
   status: string;
-  event: { id: string; isPaid: boolean; isPublic: boolean; fee: Prisma.Decimal };
+  event: { id: string; title: string; isPaid: boolean; isPublic: boolean; fee: Prisma.Decimal };
+  user: { id: string; name: string; email: string };
 } | null> {
   return prisma.participation.findUnique({
     where: { userId_eventId: { userId, eventId } },
@@ -158,9 +159,17 @@ export async function findEventParticipationByUser(
       event: {
         select: {
           id: true,
+          title: true,
           isPaid: true,
           isPublic: true,
           fee: true,
+        },
+      },
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
         },
       },
     },

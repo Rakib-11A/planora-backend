@@ -18,6 +18,7 @@ import {
   registerUser,
   resendVerificationOtp as sendVerificationOtpAgain,
   resetPassword as applyPasswordReset,
+  updateProfile as patchProfile,
   verifyEmail as confirmEmail,
 } from "./auth.service";
 import {
@@ -27,28 +28,40 @@ import {
   registerSchema,
   resendOtpSchema,
   resetPasswordSchema,
+  updateProfileSchema,
   verifyEmailSchema,
 } from "./auth.validation";
+import { getRefreshCookieMaxAgeMs } from "../../utils/token.util";
+
+function refreshCookieBase(): Pick<
+  CookieOptions,
+  "httpOnly" | "secure" | "sameSite" | "path"
+> {
+  const sameSite = config.COOKIE_SAME_SITE;
+  const secure =
+    config.NODE_ENV === "production" ? true : sameSite === "none";
+  return {
+    httpOnly: true,
+    secure,
+    sameSite,
+    path: "/",
+  };
+}
 
 /**
- * HttpOnly refresh-token cookie defaults (7 days, strict same-site).
+ * HttpOnly refresh-token cookie — `maxAge` matches `JWT_REFRESH_EXPIRES_IN`.
+ * Development defaults to SameSite=lax so cross-port localhost (3000 → 5000) still sends the cookie.
  */
 export function getCookieOptions(): CookieOptions {
   return {
-    httpOnly: true,
-    secure: config.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    path: "/",
+    ...refreshCookieBase(),
+    maxAge: getRefreshCookieMaxAgeMs(),
   };
 }
 
 function clearRefreshCookie(res: Response): void {
   res.clearCookie("refreshToken", {
-    path: "/",
-    httpOnly: true,
-    secure: config.NODE_ENV === "production",
-    sameSite: "strict",
+    ...refreshCookieBase(),
   });
 }
 
@@ -153,6 +166,17 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
   }
   const user = await fetchCurrentUser(userId);
   res.status(200).json(new ApiResponse(200, user, "Profile loaded"));
+});
+
+export const updateMe = asyncHandler(async (req: Request, res: Response) => {
+  const authReq = req as AuthenticatedRequest;
+  const userId = authReq.user?.id;
+  if (userId === undefined) {
+    throw new ApiError(401, "Unauthorized");
+  }
+  const data = updateProfileSchema.parse(req.body);
+  const user = await patchProfile(userId, data);
+  res.status(200).json(new ApiResponse(200, user, "Profile updated"));
 });
 
 export const changePassword = asyncHandler(async (req: Request, res: Response) => {

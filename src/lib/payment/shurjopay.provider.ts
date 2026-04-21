@@ -29,7 +29,20 @@ export class ShurjoPayPaymentProvider implements PaymentProvider {
     const baseUrl = (data.metadata?.frontendBaseUrl ?? process.env.FRONTEND_URL ?? "").replace(/\/$/, "");
 
     if (!username || !password) {
-      const paymentUrl = `${baseUrl}/payments?provider=shurjopay&paymentId=${encodeURIComponent(data.paymentId)}`;
+      if (baseUrl === "") {
+        throw new Error(
+          "[shurjopay dev] FRONTEND_URL or frontendBaseUrl metadata is required to build checkout URL",
+        );
+      }
+      const eventId = (data.metadata?.eventId ?? "").trim();
+      const qs = new URLSearchParams({
+        provider: "shurjopay",
+        paymentId: data.paymentId,
+      });
+      if (eventId !== "") {
+        qs.set("eventId", eventId);
+      }
+      const paymentUrl = `${baseUrl}/payment-return?${qs.toString()}`;
       return {
         paymentUrl,
         transactionId: `shurjo_dev_${data.paymentId}`,
@@ -48,14 +61,26 @@ export class ShurjoPayPaymentProvider implements PaymentProvider {
 
     const prefix = (process.env.SHURJOPAY_PREFIX ?? "PLN").trim() || "PLN";
     const orderId = `${prefix}-${data.paymentId}`.slice(0, 40);
+    const eventIdForReturn = (data.metadata?.eventId ?? "").trim();
+    const returnQs = (status: string) => {
+      const qs = new URLSearchParams({
+        provider: "shurjopay",
+        paymentId: data.paymentId,
+        status,
+      });
+      if (eventIdForReturn !== "") {
+        qs.set("eventId", eventIdForReturn);
+      }
+      return `${baseUrl}/payment-return?${qs.toString()}`;
+    };
 
     const payload = {
       token: tokenJson.token,
       store_id: 1,
       prefix,
       currency: data.currency,
-      return_url: `${baseUrl}/payments?provider=shurjopay&status=return&paymentId=${encodeURIComponent(data.paymentId)}`,
-      cancel_url: `${baseUrl}/payments?provider=shurjopay&status=cancel&paymentId=${encodeURIComponent(data.paymentId)}`,
+      return_url: returnQs("return"),
+      cancel_url: returnQs("cancel"),
       amount: data.amount,
       order_id: orderId,
       discamt: 0,
