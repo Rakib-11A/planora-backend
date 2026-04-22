@@ -98,6 +98,10 @@ export function createApp(): Application {
   app.get("/health", (_req: Request, res: Response) => {
     res.status(200).json({ status: "ok", service: "planora-backend" });
   });
+  // Proxy-friendly health for same-origin `/api` deployments.
+  app.get("/api/health", (_req: Request, res: Response) => {
+    res.status(200).json({ status: "ok", service: "planora-backend" });
+  });
 
   app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
   app.get("/api/docs.json", (_req: Request, res: Response) => {

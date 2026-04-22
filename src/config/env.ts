@@ -101,9 +101,13 @@ export const config = {
 
   SMTP_HOST: optionalString("SMTP_HOST", "smtp.gmail.com"),
   SMTP_PORT: parseSmtpPort(),
-  SMTP_USER: requiredString("SMTP_USER"),
-  SMTP_PASS: requiredString("SMTP_PASS"),
-  SMTP_FROM: requiredString("SMTP_FROM"),
+  SMTP_USER: optionalString("SMTP_USER", ""),
+  SMTP_PASS: optionalString("SMTP_PASS", ""),
+  SMTP_FROM: optionalString("SMTP_FROM", ""),
+
+  BREVO_API_KEY: optionalString("BREVO_API_KEY", ""),
+  BREVO_SENDER_EMAIL: optionalString("BREVO_SENDER_EMAIL", "monsterzx175@gmail.com"),
+  BREVO_SENDER_NAME: optionalString("BREVO_SENDER_NAME", "Planora"),
 
   BETTER_AUTH_SECRET: requiredString("BETTER_AUTH_SECRET"),
   BETTER_AUTH_URL: requiredString("BETTER_AUTH_URL"),

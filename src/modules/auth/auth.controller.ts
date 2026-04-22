@@ -78,8 +78,9 @@ export const register = asyncHandler(async (req: Request, res: Response) => {
 
 export const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
   const { email, otp } = verifyEmailSchema.parse(req.body);
-  const result = await confirmEmail(email, otp);
-  res.status(200).json(new ApiResponse(200, result, result.message));
+  const { message, user, accessToken, refreshToken } = await confirmEmail(email, otp);
+  res.cookie("refreshToken", refreshToken, getCookieOptions());
+  res.status(200).json(new ApiResponse(200, { user, accessToken }, message));
 });
 
 export const resendVerificationOtp = asyncHandler(async (req: Request, res: Response) => {

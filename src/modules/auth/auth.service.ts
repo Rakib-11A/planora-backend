@@ -191,10 +191,16 @@ export async function registerUser(
     expiresAt: getOtpExpiry(),
   });
 
-  await sendEmail({
+  // Fire-and-forget: don't block the response on email delivery.
+  sendEmail({
     to: data.email,
     subject: "Verify your email — Planora",
     html: otpEmailTemplate(plainOtp, "verification"),
+  }).catch((err: unknown) => {
+    logger.error("Failed to send verification email", {
+      to: data.email,
+      message: err instanceof Error ? err.message : String(err),
+    });
   });
 
   return { message: "Registration successful. Check email for OTP." };
@@ -202,10 +208,17 @@ export async function registerUser(
 
 // Verify email with OTP, mark user verified, optionally send welcome email.
 
+export type VerifyEmailResult = {
+  message: string;
+  user: UserPublic;
+  accessToken: string;
+  refreshToken: string;
+};
+
 export async function verifyEmail(
   email: string,
   otp: string,
-): Promise<{ message: string }> {
+): Promise<VerifyEmailResult> {
   const user = await findUserByEmail(email);
   if (!user) {
     throw new ApiError(404, "User not found");
@@ -226,13 +239,41 @@ export async function verifyEmail(
   await markOtpAsUsed(record.id);
   await updateUserById(user.id, { isEmailVerified: true });
 
-  await sendEmail({
+  sendEmail({
     to: user.email,
     subject: "Welcome to Planora",
     html: welcomeEmailTemplate(user.name, config.FRONTEND_URL),
+  }).catch((err: unknown) => {
+    logger.error("Failed to send welcome email", {
+      to: user.email,
+      message: err instanceof Error ? err.message : String(err),
+    });
   });
 
-  return { message: "Email verified successfully" };
+  const payload = { sub: user.id, email: user.email, role: user.role };
+  const accessToken = generateAccessToken(payload);
+  const refreshToken = generateRefreshToken(payload);
+  await createRefreshToken({
+    userId: user.id,
+    token: hashToken(refreshToken),
+    expiresAt: getRefreshTokenExpiry(),
+  });
+
+  const safeUser: UserPublic = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    avatar: user.avatar,
+    isActive: user.isActive,
+    isBanned: (user as { isBanned?: boolean }).isBanned ?? false,
+    bannedAt: (user as { bannedAt?: Date | null }).bannedAt ?? null,
+    isEmailVerified: true,
+    authProvider: user.authProvider,
+    createdAt: user.createdAt,
+  };
+
+  return { message: "Email verified. Welcome to Planora!", user: safeUser, accessToken, refreshToken };
 }
 
 // Resend verification OTP; invalidates previous OTP of same type via repo.
