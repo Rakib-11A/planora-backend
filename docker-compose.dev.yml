@@ -1,0 +1,20 @@
+services:
+  app:
+    build:
+      context: .
+      target: builder
+    command: npm run dev
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-planora}?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+
+  # frontend:
+  #   # Future Next.js frontend dev service placeholder.
+  #   # build:
+  #   #   context: ../planora-frontend
+  #   # command: npm run dev

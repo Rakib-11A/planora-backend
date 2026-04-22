@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+logs
+.env
+.cursor
+.cursorrules
+npm-debug.log
+yarn-error.log

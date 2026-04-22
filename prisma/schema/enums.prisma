@@ -17,6 +17,7 @@ enum ParticipationStatus {
   PENDING
   APPROVED
   REJECTED
+  CANCELLED
   BANNED
 }
 
@@ -25,12 +26,26 @@ enum InvitationStatus {
   PENDING
   ACCEPTED
   DECLINED
+  CANCELLED
 }
 
 /// Payment lifecycle for registration fees.
 enum PaymentStatus {
+  INITIATED
+  SUCCESS
   PENDING
   COMPLETED
-  FAILED
   REFUNDED
+}
+
+/// How the user signs in: local email/password vs Google OAuth.
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+}
+
+/// Purpose of a one-time code (hashed at rest).
+enum OtpType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
 }

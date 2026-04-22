@@ -1,26 +1,34 @@
-// Event — scheduled occurrence; owned by one organizer; has joins, invites, etc.
+// Event core — base lifecycle for discoverable/private events.
+// Business rules (isPaid/fee coherence) are enforced in service+validation layer.
 
 model Event {
-  id               String    @id @default(cuid())
-  title            String
-  description      String    @db.Text
-  date             DateTime
-  time             String
-  venue            String?
-  eventLink        String?
-  type             EventType
-  registrationFee  Decimal   @default(0) @db.Decimal(12, 2)
-  isFeatured       Boolean   @default(false)
-  isActive         Boolean   @default(true)
-  organizerId      String
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  dateTime    DateTime
+  venue       String
+  isPublic    Boolean  @default(true)
+  isPaid      Boolean  @default(false)
+  fee         Decimal  @default(0) @db.Decimal(12, 2)
+  createdById String
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  /// Organizer cannot be deleted while still referenced; reassign or delete events first.
-  organizer User @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Restrict)
+  /// Owner cannot be deleted while still referenced; reassign or delete events first.
+  createdBy User @relation("EventCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
   participations Participation[]
   invitations    Invitation[]
   reviews        Review[]
   payments       Payment[]
+  /// At most one site row may point here as the homepage featured event.
+  siteFeaturedAs SiteSettings? @relation("SiteFeaturedEvent")
+
+  @@index([dateTime]) // Used by: GET /api/events (chronological sorting)
+  @@index([isPublic, isPaid, dateTime]) // Used by: GET /api/events (visibility/payment filtered listings)
+  @@index([createdById]) // Used by: owner-scoped event lookups and admin filtering
+  @@index([deletedAt, dateTime]) // Used by: GET /api/events (active records + date order)
+  /// Supports common public listing: deletedAt + visibility flags + sort by dateTime
+  @@index([deletedAt, isPublic, isPaid, dateTime]) // Used by: GET /api/events (primary composite listing path)
 }

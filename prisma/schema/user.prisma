@@ -1,4 +1,4 @@
-// User — accounts that organize events, join events, pay, and review.
+// User — accounts that organize events, join events, pay, and review; auth + OAuth.
 
 model User {
   id        String   @id @default(cuid())
@@ -8,11 +8,27 @@ model User {
   role      UserRole @default(USER)
   avatar    String?
   isActive  Boolean  @default(true)
+  isBanned  Boolean  @default(false)
+  bannedAt  DateTime?
+
+  /// True once the user has verified their email (OTP or link flow).
+  isEmailVerified Boolean @default(false)
+
+  /// Google subject ID when authProvider is GOOGLE; unique across users.
+  googleId String? @unique
+
+  /// EMAIL = password login; GOOGLE = OAuth-only (password may be unused placeholder).
+  authProvider AuthProvider @default(EMAIL)
+
+  /// Per-user notification preferences. Shape: `{ emailEnabled: boolean, mutedTypes: string[] }`.
+  /// `null` = use system defaults (everything enabled).
+  notificationPreferences Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  /// Events this user created (organizer).
-  events Event[] @relation("EventOrganizer")
+  /// Events this user created.
+  events Event[] @relation("EventCreatedBy")
 
   participations Participation[]
   /// Invitations where this user is the invitee.
@@ -21,4 +37,13 @@ model User {
   invitationsSent Invitation[] @relation("InvitationInviter")
   reviews   Review[]
   payments  Payment[]
+  notifications Notification[]
+
+  /// Rotating refresh sessions (hashed tokens); removed when user is deleted.
+  refreshTokens RefreshToken[]
+
+  /// Email verification / password-reset codes (hashed); removed when user is deleted.
+  otps Otp[]
+
+  @@index([createdAt]) // Used by: GET /api/admin/users (ordered user listing)
 }

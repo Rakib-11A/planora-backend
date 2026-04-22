@@ -3,10 +3,14 @@ node_modules/
 
 # Build output
 dist/
-
+docs
 # Environment (secrets)
 .env
 
 # Logs and OS
 *.log
 .DS_Store
+
+# Cursor 
+.cursorrules
+.cursor
